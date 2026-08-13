@@ -117,7 +117,9 @@ def validate(skill_dir: Path) -> list[str]:
     for path in sorted(skill_dir.rglob("*")):
         relative = path.relative_to(skill_dir)
         if any(part in {"__pycache__", ".DS_Store"} for part in relative.parts):
-            errors.append(f"Generated or platform file is not allowed: {relative}")
+            # Generated/runtime artifacts are ignored by validation and packaging.
+            # This keeps validate -> test -> package workflows stable after Python
+            # has created __pycache__ directories locally.
             continue
         if path.is_symlink():
             errors.append(f"Symlink is not allowed in the distributable skill: {relative}")

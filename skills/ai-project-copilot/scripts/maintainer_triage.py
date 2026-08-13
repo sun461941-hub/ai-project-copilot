@@ -54,9 +54,19 @@ class TriageResult:
     reasons: list[str]
 
 
-def _contains(text: str, terms: Iterable[str]) -> list[str]:
+def _term_matches(text: str, term: str) -> bool:
     haystack = text.casefold()
-    return [term for term in terms if term in haystack]
+    needle = term.casefold()
+    if re.search(r"[\u4e00-\u9fff]", needle):
+        return needle in haystack
+    # Match ASCII terms/phrases on token boundaries so `secret` does not
+    # classify `secretary` and `error` does not classify unrelated words.
+    pattern = rf"(?<![a-z0-9_]){re.escape(needle)}(?![a-z0-9_])"
+    return re.search(pattern, haystack) is not None
+
+
+def _contains(text: str, terms: Iterable[str]) -> list[str]:
+    return [term for term in terms if _term_matches(text, term)]
 
 
 def _word_count(text: str) -> int:
@@ -89,7 +99,7 @@ def triage_issue(title: str, body: str) -> TriageResult:
         labels.append("documentation")
         reasons.append(f"documentation signals: {', '.join(docs_hits[:3])}")
 
-    if feature_hits and "bug" not in labels:
+    if feature_hits and "bug" not in labels and "security" not in labels:
         labels.append("enhancement")
         reasons.append(f"feature signals: {', '.join(feature_hits[:3])}")
 
@@ -116,9 +126,9 @@ def triage_issue(title: str, body: str) -> TriageResult:
 
     if security_hits:
         difficulty = "advanced"
-    elif docs_hits and not bug_hits:
+    elif docs_hits and not bug_hits and not feature_hits:
         difficulty = "starter"
-    elif starter_hits and not security_hits:
+    elif starter_hits and not bug_hits and not feature_hits and not high_hits:
         difficulty = "starter"
     elif len(text) > 1800 or len(set(labels) & {"bug", "enhancement"}) > 1:
         difficulty = "advanced"

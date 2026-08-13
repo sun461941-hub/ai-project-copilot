@@ -33,3 +33,11 @@ AI Project Copilot is compatible with projects that support user-imported models
 ## Supported versions
 
 Security fixes apply to the latest `main` branch and the latest tagged release.
+
+## Context Accelerator boundaries
+
+- `.aipc/` is local cache state and is gitignored. Do not treat it as release evidence.
+- Evidence cache entries store command hashes and declared input-file hashes, not command text; summaries should still avoid secrets.
+- Cache reuse is pass-only and exact-fingerprint only. Security, release, deploy, migration, permission, and final integration gates must be rerun.
+- Tool-output compaction preserves a normalized raw-log SHA-256, but the original raw log remains authoritative.
+- Context-size proxy metrics are not model-token or security claims.

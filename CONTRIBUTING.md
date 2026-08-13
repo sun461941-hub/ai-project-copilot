@@ -24,6 +24,14 @@ python tools/package_skill.py skills/ai-project-copilot \
   --output dist/ai-project-copilot.skill.zip
 ```
 
+Optional context-efficiency benchmark:
+
+```bash
+python benchmarks/run_context_efficiency.py --repeats 7
+```
+
+Efficiency changes must report the same task/fixture before and after. Do not convert character/path proxies into claimed model-token savings unless real client/API usage telemetry was collected.
+
 ## Adding a blueprint
 
 Update both the structured catalog and its human-readable reference:

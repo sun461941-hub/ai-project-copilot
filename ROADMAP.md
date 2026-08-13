@@ -2,38 +2,50 @@
 
 This roadmap describes intended directions, not promises or compatibility guarantees.
 
-## v1.1 — Maintainer foundation
+## v1.1 — Maintainer foundation ✅
 
 - deterministic issue pre-triage;
 - maintainer operations playbook;
 - roadmap and changelog;
-- feature request template;
+- contributor-facing issue template;
 - reproducible triage example and tests.
 
-## v1.2 — Evidence-first PR review
+## v2.0 — Maintainer Intelligence Engine + Context Accelerator ✅
 
-- changed-file risk classification;
-- review checklist generated from actual diff evidence;
-- test/CI coverage summary;
-- breaking-change and migration-note detection;
-- review fixtures and regression tests.
+- capability router across product + maintainer workflows;
+- repository/context mapping plus non-overwriting AI-ready instruction bootstrap;
+- local Agent Skill Stack inventory, portability warnings, and trigger-overlap audit;
+- PR/diff risk intelligence, fix/decline/escalate protocol, and convergence gate;
+- release SemVer/changelog intelligence;
+- GitHub Actions, MCP configuration, and supply-chain guards;
+- quality/eval loop and optional role orchestration;
+- portable skill-level eval suite;
+- cross-agent, human-confirmed write model;
+- FAST/BALANCED/DEEP context budgets, sparse FAST path, changed-file context compilation, tool-output compaction, and exact-fingerprint non-critical evidence cache;
+- lean 213-line Skill core with progressive lane references and reproducible context-efficiency benchmarks.
 
-## v1.3 — Release intelligence
+## v2.1 — Connected GitHub evidence adapters
 
-- deterministic release-note grouping;
-- release blocker checklist;
-- changelog consistency checks;
-- tag/version validation;
-- reproducible release bundle report.
+- optional client/API usage telemetry adapters for actual input/cached/reasoning/output token measurements;
+- normalized read-only import for issue/PR/release/workflow exports;
+- compare local deterministic reports with GitHub-native status evidence;
+- contributor and maintenance trend snapshots from user-authorized data;
+- no automatic mutation by default.
 
-## v1.4 — OSS health dashboard
+## v2.2 — Review memory without hidden state
 
-- repository health snapshot;
-- issue/PR maintenance metrics from user-supplied exports;
-- contributor onboarding checks;
-- `good first issue` quality audit;
-- application-readiness evidence report for OSS programs.
+- explicit run-state ledger;
+- carry forward unresolved review/security/release decisions;
+- stable evidence IDs across iterations;
+- import/exportable JSON session state rather than opaque agent memory.
 
-## v2.0 — Connected maintainer workflows
+## v2.3 — Ecosystem interoperability
 
-Explore optional GitHub-connected actions with explicit previews, least privilege, and human confirmation before writes.
+- compatibility self-check for major Agent Skills clients;
+- optional public registry discovery/update handoff when explicitly requested;
+- version/provenance comparison for third-party Skill updates;
+- MCP/tool capability mapping and permission preview across connected clients.
+
+## v3.0 — Maintainer Control Plane
+
+Explore an optional local dashboard that visualizes repository context, issues, PR risk, CI/evals, security findings, releases, and human approval checkpoints from the same evidence schema.

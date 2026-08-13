@@ -1,0 +1,28 @@
+{
+  "threads": [
+    {
+      "id": "thread-auth-1",
+      "decision": "fix",
+      "status": "resolved",
+      "evidence": "Authorization regression reproduced by the new negative test.",
+      "reply_sha": "abc1234",
+      "owner": ""
+    },
+    {
+      "id": "thread-style-2",
+      "decision": "decline",
+      "status": "resolved",
+      "evidence": "Suggestion conflicts with the repository's documented public API convention.",
+      "reply_sha": "",
+      "owner": ""
+    },
+    {
+      "id": "thread-migration-3",
+      "decision": "escalate",
+      "status": "open",
+      "evidence": "Backward-compatibility policy requires a maintainer decision before changing the migration path.",
+      "reply_sha": "",
+      "owner": "release-maintainer"
+    }
+  ]
+}

@@ -12,3 +12,4 @@ Thumbs.db
 dist/
 coverage/
 *.log
+.aipc/

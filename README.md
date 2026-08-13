@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="docs/hero.svg" alt="AI Project Copilot — from idea to evidence-backed AI product" width="100%" />
+  <img src="docs/hero.svg" alt="AI Project Copilot — evidence-first AI product and maintainer intelligence" width="100%" />
 </p>
 
-<h1 align="center">AI Project Copilot</h1>
+<h1 align="center">AI Project Copilot 2.0</h1>
 
 <p align="center">
-  Turn a vague idea or an ordinary repository into a credible, demo-ready AI product.<br />
-  One focused Agent Skill. Twenty-four showcase blueprints. No AI theater.
+  A portable Agent Skill for <b>AI product engineering + open-source maintainer intelligence</b>.<br />
+  Map the repo. Route the task. Review risk. Prepare releases. Harden automation. Prove the result.
 </p>
 
 <p align="center">
   <a href="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Agent Skills compatible" src="https://img.shields.io/badge/Agent%20Skills-compatible-6D5EF9" />
+  <img alt="v2" src="https://img.shields.io/badge/version-2.0.0-7C3AED" />
   <img alt="Blueprints" src="https://img.shields.io/badge/showcase%20blueprints-24-21B8F6" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E" /></a>
@@ -19,214 +20,300 @@
 
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="skills/ai-project-copilot/SKILL.md">Read the skill</a> ·
-  <a href="skills/ai-project-copilot/references/showcase-projects.md">Browse all 24 projects</a> ·
-  <a href="GITHUB_UPLOAD.zh-CN.md">GitHub upload guide</a>
+  <a href="skills/ai-project-copilot/SKILL.md">Read the Skill</a> ·
+  <a href="ECOSYSTEM_BENCHMARK.md">Ecosystem benchmark</a> ·
+  <a href="ROADMAP.md">Roadmap</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-> **This is not a bag of generic prompts.** It is a repeatable product-engineering workflow that makes an agent inspect the repository, find the strongest AI wedge, build one working vertical slice, add evaluation and trust boundaries, and package the result for a convincing GitHub demo.
+> **v2 is no longer only a “make my AI project look good” workflow.** It is a repository-level intelligence layer: context discovery, product architecture, issue triage, PR risk, release intelligence, security/supply chain, quality/evals, contributor workflows, and showcase evidence — with human authority preserved for consequential writes.
 
-## What it does
+## The v2 capability lanes
 
-AI Project Copilot helps ChatGPT or Codex:
+| Lane | What it does | Deterministic evidence |
+|---|---|---|
+| **Discover** | maps codebase context, bootstraps reviewable agent instructions, audits local Skill Stack overlap | `repo_context.py`, `ai_ready_bootstrap.py`, `skill_stack_audit.py` |
+| **Launch** | turns a vague idea into one credible AI vertical slice | 24 blueprint catalog + `rank_blueprints.py` |
+| **Retrofit** | adds one high-value AI capability without rewriting the product | feature gate + architecture references |
+| **Maintain** | triages issues and improves contributor onboarding | `maintainer_triage.py` |
+| **Review** | prioritizes PR/diff risk and verifies fix/decline/escalate convergence | `change_risk.py`, `review_convergence.py` |
+| **Release** | recommends SemVer, groups release notes, flags migration blockers | `release_intel.py` |
+| **Secure** | checks Actions, MCP config, permissions, action/package refs, and skill integrity | `supply_chain_guard.py`, `mcp_config_audit.py` |
+| **Quality** | creates requirement-linked tests/evals and measured improvement loops | `evals/evals.json` + quality playbook |
+| **Showcase** | turns evidence into README/demo/release clarity | demo + shipping references |
 
-- discover the most valuable AI capability for a real user problem;
-- select from **24 high-signal project blueprints** instead of cloning another generic chatbot;
-- choose local-first, cloud, or hybrid architecture deliberately;
-- implement RAG, tools/agents, multimodal input, voice, media generation, local models, memory, streaming, evals, and observability only when they earn their complexity;
-- protect secrets, private traces, model licenses, user-imported weights, and consequential tool actions;
-- produce a polished README, realistic sample path, one-minute demo script, tests, evals, and honest limitations.
+## AIPC Context Accelerator
 
-## The core workflow
+v2.0 adds a dedicated efficiency layer for Codex and other coding agents. It does **not** claim to increase model tokens-per-second or bypass quotas. Instead, it reduces avoidable work before the model has to reason:
+
+```text
+Task → FAST / BALANCED / DEEP budget
+     → changed-file + AGENTS instruction chain
+     → bounded initial context packet
+     → targeted tools/tests
+     → compact failure evidence
+     → exact-fingerprint non-critical evidence reuse
+     → full critical/final gate
+```
+
+Start with a budget:
+
+```bash
+python skills/ai-project-copilot/scripts/token_governor.py \
+  --prompt "fix the README typo" \
+  --changed-file README.md \
+  --format markdown
+```
+
+Compile one batched context packet instead of repeatedly listing/searching the repo:
+
+```bash
+python skills/ai-project-copilot/scripts/context_accelerator.py \
+  --repo /path/to/repo \
+  --task "review the auth change" \
+  --git-status \
+  --format markdown
+```
+
+For noisy tools, preserve the raw log while giving the agent a small evidence view:
+
+```bash
+pytest -v 2>&1 | \
+  python skills/ai-project-copilot/scripts/tool_output_compactor.py --max-lines 80
+```
+
+`evidence_cache.py` can reuse only **passing, non-critical** evidence when the command and declared input-file content hashes match exactly. Security, release, deploy, migration, permissions, and final integration gates always bypass the cache. `.aipc/` cache state is gitignored.
+
+The Skill core is now **213 lines** and pushes lane-specific detail into references. This follows the same design target as the rest of v2: give the agent a map and the minimum active rules, not a giant manual.
+
+Reproducible context-efficiency fixtures live in [`benchmarks/`](benchmarks/). Their path/log character metrics are context-size **proxies**, not measured Codex tokens. Actual input/cached/reasoning/output token claims require client/API usage telemetry.
+
+A local Linux / Python 3.13.5 run (15 repeats for each context case) produced:
+
+| Case | Repo files | Initial files selected | Path-char proxy reduction vs all paths | Accelerator reconnaissance vs full map |
+|---|---:|---:|---:|---:|
+| FAST docs | 1,400 | 3 | 99.8769% | 0.571 ms vs 29.544 ms (**~51.7×** faster local reconnaissance) |
+| BALANCED feature | 1,800 | 7 | 99.6854% | 34.966 ms vs 34.050 ms (**~2.7% overhead**) |
+| DEEP security/release | 2,400 | 9 | 99.6637% | 49.521 ms vs 46.851 ms (**~5.7% overhead**) |
+
+A synthetic 5,003-line test log was reduced from 184,074 to 949 characters (99.4844%) while preserving both failure markers, the final summary, and the normalized raw-log SHA-256. These numbers measure deterministic preprocessing only; they are **not Codex generation-speed or token-savings claims**.
+
+## What was added after benchmarking mainstream Agent Skills
+
+The ecosystem repeatedly converges on a few patterns: progressive disclosure, deterministic scripts, codebase mapping, PR loops, release automation, supply-chain/security review, skill evals, role orchestration, structured JSON output, and context-efficient black-box helpers. v2 integrates those patterns into one coherent workflow instead of shipping dozens of disconnected prompts. See [`ECOSYSTEM_BENCHMARK.md`](ECOSYSTEM_BENCHMARK.md).
+
+## Core workflow
 
 ```mermaid
 flowchart LR
-    A[Inspect idea or repository] --> B[Find the product wedge]
-    B --> C[Rank 24 blueprints]
-    C --> D[Gate each AI feature]
-    D --> E[Choose local / cloud / hybrid]
-    E --> F[Build one vertical slice]
-    F --> G[Add evidence, evals, privacy]
-    G --> H[Polish the demo and GitHub release]
+    A[Discover repository] --> B[Route task]
+    B --> C[Establish deterministic evidence]
+    C --> D{Lane}
+    D --> E[Product / Maintain / Review / Release / Secure]
+    E --> F[Quality + risk gates]
+    F --> G[Human confirmation for consequential writes]
+    G --> H[Showcase + changelog + release evidence]
 ```
 
-The feature gate asks six questions before anything is added:
+## Deterministic intelligence helpers
 
-| Gate | Question |
-|---|---|
-| Need | What user problem disappears? |
-| Proof | What visible result demonstrates value? |
-| Grounding | What source, data, or tool keeps it accurate? |
-| Fallback | What happens when the model is wrong, slow, offline, or unavailable? |
-| Boundary | What data leaves the device or repository? |
-| Evaluation | What catches a regression? |
+### 1. Map an unfamiliar repository
 
-## Featured project blueprints
+```bash
+python skills/ai-project-copilot/scripts/repo_context.py \
+  --repo /path/to/repo \
+  --task "change authentication without breaking mobile clients" \
+  --format markdown
+```
 
-| Project | Why it stands out | Signature demo |
-|---|---|---|
-| **Codex Build Visualizer** | Privacy-safe agent/build trace visualization | Scrub through file edits, tools, approvals, CI failures, and recovery in one synchronized timeline |
-| **Android Local Video Runtime** | Model-agnostic, user-imported, on-device video inference | Generate a short offline clip while showing memory, thermal, latency, and backend telemetry |
-| **AI Codebase Cartographer** | Evidence-linked architecture and impact analysis | Ask what breaks after an interface change and watch affected modules/tests light up |
-| **Test Failure Replay Studio** | Cross-platform CI debugging | Replay the exact divergence between Windows, macOS, and Linux runs |
-| **Multimodal Research Canvas** | Papers, charts, images, notes, and citations in one workspace | Connect a claim to exact text passages and visual regions |
-| **Agent Memory Inspector** | Makes AI memory visible and controllable | Inspect provenance, confidence, expiry, conflicts, and one-click forget controls |
-| **Model Eval Arena** | Replaces model-selection vibes with evidence | Compare outputs, graders, latency, cost, and regressions live |
-| **On-Device Multimodal Assistant** | Honest offline/private AI | Disconnect the network and complete a real image/text/audio task locally |
-| **Browser Workflow Studio** | Human-controlled, editable automation | Turn one demonstrated task into a permissioned visual workflow |
-| **Accessibility Copilot** | High-impact multimodal interaction | Transform a dense visual interface into a navigable, voice-controllable structure |
+Returns language/manifest/entrypoint/test/CI/governance evidence plus task-focused files. It does not pretend folder names alone prove architecture.
 
-The complete catalog includes developer tools, on-device systems, research, automation, education, accessibility, data/evals, voice, and creative media: [`showcase-projects.md`](skills/ai-project-copilot/references/showcase-projects.md).
+### 2. Make a repo AI-ready without overwriting policy
+
+```bash
+python skills/ai-project-copilot/scripts/ai_ready_bootstrap.py \
+  --repo /path/to/repo \
+  --target agents \
+  --target copilot \
+  --json
+```
+
+This creates evidence-based instruction drafts only when targets do not already exist, unless `--force` is explicitly requested.
+
+### 3. Audit the local Agent Skill Stack
+
+```bash
+python skills/ai-project-copilot/scripts/skill_stack_audit.py \
+  --project /path/to/repo \
+  --format markdown
+```
+
+It inventories local skills, bundled scripts/references/assets, duplicate names, portability warnings, and likely trigger overlap. It never installs or executes third-party skills.
+
+### 4. Route a broad request
+
+```bash
+python skills/ai-project-copilot/scripts/workflow_router.py \
+  --prompt "review this PR, check security, then prepare a release" \
+  --format markdown
+```
+
+### 5. Prioritize PR risk
+
+```bash
+python skills/ai-project-copilot/scripts/change_risk.py \
+  --patch change.diff \
+  --format markdown
+```
+
+Risk lanes include auth/security, schema/migrations, public API/contracts, CI/supply chain, deployment/config, diff size, and missing test evidence. The score prioritizes review effort; it is not a safety certificate.
+
+### 6. Verify PR review convergence
+
+After semantic review-thread decisions are stored as `fix`, `decline`, or `escalate`:
+
+```bash
+python skills/ai-project-copilot/scripts/review_convergence.py \
+  --threads-json review-state.json \
+  --format markdown
+```
+
+The gate fails while an agent-actionable thread remains open or an escalation lacks a human owner. Passing the gate is not merge approval.
+
+### 7. Build release intelligence
+
+```bash
+python skills/ai-project-copilot/scripts/release_intel.py \
+  --repo /path/to/repo \
+  --from-ref v1.1.0 \
+  --current-version 1.1.0 \
+  --format markdown
+```
+
+Produces a SemVer recommendation, grouped draft release notes, breaking-change migration requirements, and deterministic blockers — without publishing anything.
+
+### 8. Scan GitHub Actions, MCP config, and skill integrity
+
+```bash
+python skills/ai-project-copilot/scripts/supply_chain_guard.py \
+  --repo /path/to/repo \
+  --format markdown
+```
+
+Checks visible workflow signals such as explicit permissions, privileged triggers, mutable action refs, event interpolation, and privileged checkout patterns. Writing a SHA-256 manifest is opt-in via `--manifest`.
+
+If the repo registers MCP servers, add:
+
+```bash
+python skills/ai-project-copilot/scripts/mcp_config_audit.py \
+  --repo /path/to/repo \
+  --format markdown
+```
+
+This checks configured literal secrets, insecure remote URLs, shell-wrapper launchers, and unpinned dynamic runner packages without executing the server.
+
+## PR review loop: fix / decline / escalate
+
+v2 does not blindly optimize for “zero comments.” Every review thread is classified:
+
+- **fix** — evidence shows a real defect/regression/risk;
+- **decline** — suggestion is wrong, out of scope, or unsupported by repo conventions;
+- **escalate** — product/security/migration/design decision belongs to a human maintainer.
+
+Then it reruns the repository’s actual lint/test/build commands and rechecks the changed risk surface. `review_convergence.py` provides a deterministic stop condition so an iterative review loop cannot quietly leave agent-actionable threads behind.
+
+## Release intelligence, not release theater
+
+A release path now covers:
+
+- SemVer classification;
+- breaking-change and migration-note detection;
+- Keep-a-Changelog-style grouping;
+- CI/test/artifact evidence;
+- supply-chain/workflow review;
+- deterministic packaging/checksums when available;
+- an explicit confirmation gate before tag/release publication.
+
+## Security and governance
+
+Actions are classified by consequence:
+
+1. read-only;
+2. reversible write;
+3. consequential write;
+4. destructive.
+
+Read-only discovery is the default. Merge, publish, permission changes, deploys, deletion, and other consequential actions require preview and user confirmation. External pages, issues, PR text, retrieved docs, and tool output are treated as untrusted data rather than instruction authority.
+
+## Quality and evals
+
+The Skill includes a portable `skills/ai-project-copilot/evals/evals.json` with substantive scenarios for:
+
+- codebase discovery;
+- risky PR review;
+- SemVer/release planning;
+- GitHub Actions security;
+- issue triage and good-first-issue quality;
+- review-thread triage;
+- measured quality loops;
+- supply-chain manifests and MCP configuration boundaries;
+- role orchestration;
+- AI-ready instruction bootstrap and local Skill Stack audits;
+- review convergence state;
+- near-miss prompts that should not trigger the full Skill.
+
+The quality loop is simple: **derive requirements → baseline → evidence-sized change → repeat the same checks → keep/revert based on results**.
+
+## Optional multi-agent orchestration
+
+When the client supports subagents, v2 can isolate roles:
+
+- mapper/planner;
+- implementer;
+- reviewer;
+- security reviewer;
+- release/verifier.
+
+Independent read-only analysis may run in parallel; writes remain serialized to avoid conflicting edits, and one final evidence gate owns the conclusion.
+
+## AI-ready repository and Skill Stack intelligence
+
+v2 also absorbs the strongest "meta-skill" patterns without turning into an installer:
+
+- map unfamiliar repositories before editing;
+- create reviewable `AGENTS.md` and Copilot instruction drafts without overwriting existing policy;
+- inventory local Agent Skills across common project/user locations;
+- detect duplicate skill names and high description/trigger overlap;
+- keep third-party discovery/install/update as an explicit, separately authorized action.
+
+## Product engineering remains built in
+
+v2 keeps the original strengths:
+
+- 24 project blueprints including Codex Build Visualizer and Android Local Video Runtime;
+- local-first/cloud/hybrid architecture guidance;
+- RAG, agents/tools, multimodal, voice, media generation, local models, memory, streaming, evals, observability;
+- privacy/model-license/tool-safety boundaries;
+- realistic demo scripts and README templates;
+- deterministic skill validation and packaging;
+- Linux, Windows, and macOS CI.
 
 ## Install
 
-### Codex skill installer
-
-In Codex, run:
+### Codex / Agent Skills-compatible clients
 
 ```text
 $skill-installer install https://github.com/sun461941-hub/ai-project-copilot/tree/main/skills/ai-project-copilot
 ```
 
-Restart Codex only if the new skill does not appear automatically.
-
-### Manual install
-
-User-wide installation:
-
-```bash
-mkdir -p ~/.agents/skills
-cp -R skills/ai-project-copilot ~/.agents/skills/ai-project-copilot
-```
-
-Repository-scoped installation:
+Manual project-scoped install:
 
 ```bash
 mkdir -p .agents/skills
-cp -R /path/to/ai-project-copilot/skills/ai-project-copilot .agents/skills/ai-project-copilot
+cp -R skills/ai-project-copilot .agents/skills/ai-project-copilot
 ```
 
-The release ZIP produced by this repository contains a single top-level `ai-project-copilot/` folder and can be uploaded directly to clients or APIs that accept Agent Skill archives.
-
-## Use
-
-Explicit invocation:
-
-```text
-$ai-project-copilot Turn this repository into a compelling open-source AI project.
-Preserve the current stack, choose one strong vertical slice, add tests and evals,
-and prepare a 60-second demo plus an honest GitHub README.
-```
-
-Retrofit an existing project:
-
-```text
-Use $ai-project-copilot to audit this app and add the single highest-value AI capability.
-Do not add a generic chatbot. Keep all existing non-AI behavior working.
-```
-
-Choose a project direction:
-
-```text
-Use $ai-project-copilot to propose and rank five GitHub-worthy AI projects that are
-local-first, visually demonstrable, privacy-aware, and feasible for a small team.
-```
-
-Continue the two flagship directions included in the catalog:
-
-```text
-Use $ai-project-copilot to turn the Codex Build Visualizer into a polished privacy-safe
-trace replay product with cross-platform tests and a one-minute demo.
-```
-
-```text
-Use $ai-project-copilot to design an Android local video runtime that does not train,
-host, bundle, or redistribute model weights. Users import legally obtained models.
-```
-
-## Deterministic helpers
-
-Rank the bundled ideas:
-
-```bash
-python skills/ai-project-copilot/scripts/rank_blueprints.py \
-  --priorities local-first,visual-demo,developer-tools \
-  --constraints privacy,android \
-  --limit 5
-```
-
-Copy planning templates into another repository without overwriting existing files:
-
-```bash
-python skills/ai-project-copilot/scripts/init_project_docs.py \
-  --repo /path/to/project
-```
-
-Audit visible repository readiness:
-
-```bash
-python skills/ai-project-copilot/scripts/audit_repo.py \
-  --repo /path/to/project
-```
-
-The audit is intentionally transparent. It checks evidence such as working source, README quick start, demo path, tests, CI, evals, privacy/model boundaries, realistic examples, and obvious secret leaks. It does not pretend to replace product or security review.
-
-## Reproducible example
-
-The checked-in example ranks project directions for a private, mobile, local-first video workflow:
-
-```bash
-python skills/ai-project-copilot/scripts/rank_blueprints.py \
-  --priorities local-first,video,android,visual-demo \
-  --constraints privacy,mobile \
-  --limit 3 \
-  --json
-```
-
-The deterministic output is stored at [`examples/android-local-video-ranking.json`](examples/android-local-video-ranking.json); the corresponding request is in [`examples/sample-request.md`](examples/sample-request.md). No API key or network connection is required.
-
-## Quality built into the repository
-
-- exact `SKILL.md` name/directory validation;
-- frontmatter and reference validation;
-- Python syntax checks for bundled scripts;
-- deterministic, single-root skill packaging;
-- no silent overwrite of release archives;
-- symlink and special-file rejection during packaging;
-- trigger eval dataset with positive and near-miss negative prompts;
-- unit tests on Linux, Windows, and macOS;
-- CI on Python 3.10 and 3.14;
-- least-privilege GitHub Actions permissions;
-- Dependabot updates for action dependencies.
-
-## Repository structure
-
-```text
-.
-├── skills/ai-project-copilot/
-│   ├── SKILL.md
-│   ├── agents/openai.yaml
-│   ├── assets/
-│   │   ├── icon-small.svg
-│   │   ├── icon-large.svg
-│   │   └── templates/
-│   ├── references/
-│   │   ├── showcase-projects.md
-│   │   ├── blueprints.json
-│   │   ├── feature-modules.md
-│   │   ├── architecture-playbook.md
-│   │   ├── experience-and-demo.md
-│   │   ├── trust-evals-and-security.md
-│   │   └── shipping-checklist.md
-│   └── scripts/
-│       ├── rank_blueprints.py
-│       ├── init_project_docs.py
-│       └── audit_repo.py
-├── evals/trigger-prompts.csv
-├── tools/
-├── tests/
-└── .github/workflows/ci.yml
-```
+The core format stays Agent Skills-compatible; individual clients may use additional native skill locations.
 
 ## Validate and package
 
@@ -237,19 +324,62 @@ python tools/package_skill.py skills/ai-project-copilot \
   --output dist/ai-project-copilot.skill.zip
 ```
 
+## Repository structure
+
+```text
+skills/ai-project-copilot/
+├── SKILL.md
+├── agents/openai.yaml
+├── assets/templates/
+├── evals/evals.json
+├── references/
+│   ├── capability-router.md
+│   ├── codebase-context.md
+│   ├── pr-review-loop.md
+│   ├── release-intelligence.md
+│   ├── security-governance.md
+│   ├── quality-orchestration.md
+│   └── ...existing product references
+└── scripts/
+    ├── token_governor.py
+    ├── context_accelerator.py
+    ├── tool_output_compactor.py
+    ├── evidence_cache.py
+    ├── workflow_router.py
+    ├── repo_context.py
+    ├── ai_ready_bootstrap.py
+    ├── skill_stack_audit.py
+    ├── maintainer_triage.py
+    ├── change_risk.py
+    ├── review_convergence.py
+    ├── release_intel.py
+    ├── supply_chain_guard.py
+    ├── mcp_config_audit.py
+    └── ...existing helpers
+```
+
+## Demo path
+
+A realistic 60-second maintainer demo can be run entirely read-only: map an unfamiliar repo → analyze a risky change → draft release intelligence → scan GitHub Actions → show the human confirmation gate. Use the checked-in JSON examples for deterministic demonstrations when a live repository is not appropriate.
+
+## Limitations and model/provider boundary
+
+- Heuristic scores prioritize attention; they are not security, correctness, or production-readiness certificates.
+- The Skill does not bundle or redistribute third-party model weights. Model/provider selection remains an explicit project decision with license and data-boundary review.
+- Local Skill Stack audit does not establish trust, popularity, or safety and does not install/update anything.
+- Semantic code review still requires reading the actual implementation and tests; deterministic helpers cannot replace domain expertise.
+- Connected GitHub/MCP actions depend on the client and permissions available at runtime; read-only analysis remains the portable baseline.
+- Character/path reduction and local runtime benchmarks are deterministic proxies; they must not be reported as exact Codex token savings or backend speedups.
+
 ## Design principles
 
-1. **One credible workflow beats ten unfinished features.**
-2. **A visible trust signal belongs in the demo, not only in policy text.**
-3. **Local-first must survive a disconnected-network test.**
-4. **A generic runtime stays separate from third-party model weights.**
-5. **Public traces and exports are built from an allowlist.**
-6. **No benchmark, compatibility, security, or production claim without evidence.**
-7. **The agent should leave the repository easier for the next human to understand.**
-
-## Contributing
-
-Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for scope, validation, and blueprint contribution rules. Security-sensitive reports belong in [`SECURITY.md`](SECURITY.md).
+1. **Inspect before editing.**
+2. **Evidence before confidence.**
+3. **One coherent workflow beats a bag of prompts.**
+4. **Deterministic tools handle repetitive classification; models handle ambiguity.**
+5. **High consequence means stronger human control.**
+6. **Progressive disclosure keeps the Skill powerful without bloating context.**
+7. **No benchmark, compatibility, security, maintenance, or adoption claim without evidence.**
 
 ## License
 

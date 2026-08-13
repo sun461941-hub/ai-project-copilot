@@ -64,6 +64,20 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(5, len(second_data["skipped"]))
             self.assertEqual("custom\n", brief.read_text(encoding="utf-8"))
 
+    def test_init_project_docs_refuses_output_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
+            repo = Path(temp)
+            outside_path = Path(outside) / "docs"
+            result = run(
+                str(SKILL / "scripts" / "init_project_docs.py"),
+                "--repo", str(repo),
+                "--output", str(outside_path),
+                "--json",
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertFalse(outside_path.exists())
+
     def test_repo_audit_emits_transparent_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -108,6 +122,26 @@ class RepositoryTests(unittest.TestCase):
                 self.assertTrue(all("\\" not in name for name in names))
                 self.assertIn("ai-project-copilot/SKILL.md", names)
                 self.assertNotIn("ai-project-copilot/README.md", names)
+
+    def test_validator_and_packager_ignore_runtime_python_cache(self) -> None:
+        cache = SKILL / "scripts" / "__pycache__"
+        cache.mkdir(exist_ok=True)
+        marker_file = cache / "runtime-test.pyc"
+        marker_file.write_bytes(b"generated-cache")
+        try:
+            result = run("tools/validate_skill.py", str(SKILL))
+            self.assertIn("PASS", result.stdout)
+            with tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / "skill.zip"
+                run("tools/package_skill.py", str(SKILL), "--output", str(output))
+                with zipfile.ZipFile(output) as archive:
+                    self.assertFalse(any("__pycache__" in name for name in archive.namelist()))
+        finally:
+            marker_file.unlink(missing_ok=True)
+            try:
+                cache.rmdir()
+            except OSError:
+                pass
 
     def test_packager_refuses_existing_output(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

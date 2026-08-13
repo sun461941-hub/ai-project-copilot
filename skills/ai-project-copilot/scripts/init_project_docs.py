@@ -33,8 +33,13 @@ def initialize(repo: Path, output: Path, force: bool) -> dict[str, list[str]]:
     if not repo.exists() or not repo.is_dir():
         raise ValueError(f"Repository directory does not exist: {repo}")
 
-    destination = output if output.is_absolute() else repo / output
-    safe_directory(destination)
+    candidate = output.expanduser() if output.is_absolute() else repo / output
+    safe_directory(candidate)
+    destination = candidate.resolve()
+    try:
+        destination.relative_to(repo)
+    except ValueError as exc:
+        raise ValueError(f"Destination must remain inside repository: {candidate}") from exc
     destination.mkdir(parents=True, exist_ok=True)
 
     template_dir = Path(__file__).resolve().parents[1] / "assets" / "templates"

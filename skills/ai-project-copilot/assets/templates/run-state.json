@@ -1,0 +1,12 @@
+{
+  "run_id": "example",
+  "goal": "",
+  "lane": "discover",
+  "source_ref": "",
+  "evidence": [],
+  "checks": [],
+  "writes_previewed": [],
+  "writes_confirmed": [],
+  "remaining_risks": [],
+  "status": "planned"
+}
