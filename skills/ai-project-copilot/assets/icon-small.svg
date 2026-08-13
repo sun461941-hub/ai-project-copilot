@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">AI Project Copilot icon</title>
+  <desc id="desc">A rounded square containing a bright path and star.</desc>
+  <defs>
+    <linearGradient id="g" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#21D4FD"/>
+      <stop offset="0.52" stop-color="#6D5EF9"/>
+      <stop offset="1" stop-color="#FF4ECD"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="#0B1020"/>
+  <path d="M15 43c9-18 19-24 34-23-7 5-10 11-10 18-8-2-15 0-24 5Z" fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m46 12 1.8 4.2L52 18l-4.2 1.8L46 24l-1.8-4.2L40 18l4.2-1.8L46 12Z" fill="#FFFFFF"/>
+  <circle cx="18" cy="45" r="4" fill="#FFFFFF"/>
+</svg>

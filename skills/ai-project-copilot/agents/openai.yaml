@@ -1,0 +1,9 @@
+interface:
+  display_name: "AI Project Copilot"
+  short_description: "Turn ideas and repositories into credible AI products"
+  icon_small: "./assets/icon-small.svg"
+  icon_large: "./assets/icon-large.svg"
+  brand_color: "#6D5EF9"
+  default_prompt: "Use $ai-project-copilot to turn this idea or repository into a polished, testable AI product with a clear wow moment, honest constraints, and a working vertical slice."
+policy:
+  allow_implicit_invocation: true

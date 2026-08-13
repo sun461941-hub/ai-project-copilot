@@ -1,0 +1,50 @@
+name: Project blueprint proposal
+description: Propose a distinct, demonstrable AI project for the catalog.
+title: "[Blueprint]: "
+labels: ["blueprint"]
+body:
+  - type: input
+    id: user
+    attributes:
+      label: Target user
+    validations:
+      required: true
+  - type: textarea
+    id: pain
+    attributes:
+      label: Painful moment and current workaround
+    validations:
+      required: true
+  - type: textarea
+    id: pitch
+    attributes:
+      label: One-sentence pitch
+    validations:
+      required: true
+  - type: textarea
+    id: wow
+    attributes:
+      label: 60-second wow moment
+    validations:
+      required: true
+  - type: textarea
+    id: slice
+    attributes:
+      label: Minimum vertical slice
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: Proof, fallback, privacy, and licensing boundaries
+    validations:
+      required: true
+  - type: checkboxes
+    id: differentiation
+    attributes:
+      label: Differentiation
+      options:
+        - label: The idea is more than adding a generic chatbot to an existing product.
+          required: true
+        - label: The proposed demo can be implemented honestly without fabricated capabilities.
+          required: true
