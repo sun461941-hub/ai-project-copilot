@@ -1,0 +1,13 @@
+{
+  "labels": [
+    "documentation",
+    "good first issue"
+  ],
+  "priority": "normal",
+  "difficulty": "starter",
+  "confidence": 0.57,
+  "needs": [],
+  "reasons": [
+    "documentation signals: documentation, readme, typo"
+  ]
+}
