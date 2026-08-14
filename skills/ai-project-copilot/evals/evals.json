@@ -217,6 +217,17 @@
         "Explains proxy limitation",
         "Requests real usage telemetry"
       ]
+    },
+    {
+      "id": 23,
+      "prompt": "Let each user reserve 40% of a monthly AI budget for our quality model, route routine work to reviewed cheaper models after that, but never silently downgrade security or release work. Show the final model after a failed fallback.",
+      "expected_output": "A cost-based portfolio where 40% is an ordinary preferred-model ceiling rather than ring-fenced funds, with cold-start handling, a shared period admission cap, payload-bound immutable reservations, protected-task handling, cost-checked fallbacks, provider-response deduplication, and at most one quality-gated upgrade whose failed and successful attempts both remain in final totals.",
+      "expectations": [
+        "Calls it cost allocation rather than guaranteed Token savings",
+        "Clarifies that the preferred share is not ring-fenced",
+        "Persists allow, downgrade, protected, upgrade, and block decisions",
+        "Counts failed fallback usage before reporting the final model"
+      ]
     }
   ]
 }

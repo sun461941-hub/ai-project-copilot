@@ -49,6 +49,8 @@ Use **FAST / BALANCED / DEEP** as workload budgets, not quality levels. Read `re
 
 The Skill cannot increase Codex backend tokens-per-second, quota, or force a reasoning setting. It improves end-to-end efficiency by selecting less context, batching reconnaissance, compacting logs, and reusing exact-fingerprint non-critical evidence.
 
+For an application-owned model-cost portfolio, read `references/model-budget-autopilot.md`. `scripts/model_budget_autopilot.py` caps ordinary preferred-model spend at a user-selected share, admits only non-more-expensive reviewed fallbacks, keeps consequential tasks behind the shared period admission cap, and permits one evidence-gated quality upgrade. The share is not ring-fenced. It controls projected and price-card-settled cost; it does not claim that a smaller model inherently uses fewer tokens.
+
 ## Capability lanes
 
 Read `references/capability-router.md` only for broad or multi-domain work.

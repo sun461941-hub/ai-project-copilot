@@ -2,6 +2,27 @@
 
 All notable changes to AI Project Copilot are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Model Budget Autopilot**, a provider-neutral SQLite control plane for user-selected preferred-model cost allocation, cost-checked fallback routing, protected-task handling, payload-bound immutable decisions, concurrent reservations, provider-response deduplication, lease renewal, usage settlement, hysteresis, and one quality-gated upgrade;
+- deterministic offline `simulate` evidence that reports every fallback/upgrade attempt and the final quality-gated selected model without claiming unmeasured Token savings;
+- adversarial tests for cold start, exact budget boundaries, block/settlement idempotency, cache-write projection, reservation renewal/expiry, usage overruns, price snapshots, protected tasks, incomplete responses, duplicate provider IDs, database permissions, and concurrent routing.
+
+### Safety and accuracy
+
+- model prices remain explicit configuration snapshots rather than a hard-coded live catalog;
+- fallback routing never selects a higher projected request cost, and unknown input-cache mix uses the highest configured input rate for admission;
+- reservation deadlines round outward so sub-second start times never shorten the promised TTL, and fallback search skips unrepresentable intermediate candidates;
+- a configuration change invalidates both late and still-unconsumed automatic upgrades derived from the previous model ladder, preventing permanent reconfiguration locks and stale upgrade execution;
+- actual usage settlement is independent of whether the requested-model counterfactual exceeds SQLite's integer range;
+- initialized ledgers no longer reacquire a schema writer lock on every request, and transient SQLite writer contention now receives bounded busy retry before surfacing an error;
+- only the first reservation-creating route response carries execution authority; every replay clears the executable model, exposes `execution_authorized=false`, and returns a distinct nonzero CLI status;
+- schema-version and structural schema-contract checks reject incompatible ledgers before DDL and recheck after the writer lock to stop rolling-upgrade races; fact inserts explicitly abort on conflicts, and CLI nano-USD fields use decimal strings to preserve wire precision;
+- all money uses integer nano-USD and all failed/retried attempts stay in final cost and Token totals;
+- `token_savings` remains unknown without a task-aligned baseline, because changing models does not inherently reduce Token usage.
+
 ## [2.0.0] - 2026-08-13
 
 ### Added

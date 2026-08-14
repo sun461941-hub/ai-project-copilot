@@ -51,7 +51,10 @@ def collect(skill_dir: Path) -> list[Path]:
 
 
 def package(skill_dir: Path, output: Path, force: bool = False) -> tuple[str, int, int]:
-    skill_dir = skill_dir.expanduser().resolve()
+    skill_dir = skill_dir.expanduser()
+    if skill_dir.is_symlink():
+        raise ValueError("Skill root must not be a symlink")
+    skill_dir = skill_dir.resolve()
     errors = validate(skill_dir)
     if errors:
         raise ValueError("Skill validation failed:\n- " + "\n- ".join(errors))

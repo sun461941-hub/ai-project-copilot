@@ -75,7 +75,7 @@ pytest -v 2>&1 | \
 
 压缩结果保留失败/汇总附近的上下文、遗漏行数和原始标准化日志的 SHA-256；原始日志始终是最终证据来源。`evidence_cache.py` 只允许复用**通过且非关键**、并且“命令 + 声明输入文件内容哈希”完全一致的证据。安全、Release、部署、迁移、权限和最终集成门禁必须重跑。`.aipc/` 已加入 `.gitignore`。
 
-核心 `SKILL.md` 已压缩到 **213 行**，更多细节按通道放入 references。仓库的 [`benchmarks/`](benchmarks/) 提供可复现的上下文效率测试；其中路径字符和日志字符是**上下文大小代理指标，不是实测 Codex Token**。要报告真实 input/cached/reasoning/output tokens，必须读取客户端/API 的 usage telemetry。
+核心 `SKILL.md` 保持在 **250 行以内**，更多细节按通道放入 references。仓库的 [`benchmarks/`](benchmarks/) 提供可复现的上下文效率测试；其中路径字符和日志字符是**上下文大小代理指标，不是实测 Codex Token**。要报告真实 input/cached/reasoning/output tokens，必须读取客户端/API 的 usage telemetry。
 
 一次 Linux / Python 3.13.5 本地测试（每个上下文场景重复 15 次）得到：
 
@@ -86,6 +86,29 @@ pytest -v 2>&1 | \
 | DEEP 安全/发布 | 2,400 | 9 | 99.6637% | 49.521 ms vs 46.851 ms（约 **5.7% 额外开销**） |
 
 另一个 5,003 行的合成测试日志从 184,074 字符压到 949 字符（99.4844%），两个失败标记、最终汇总和原始标准化日志 SHA-256 均保留。以上只是确定性预处理数据，**不能冒充 Codex 模型生成速度或真实 Token 节省比例**。
+
+## 模型预算自动驾驶
+
+**给首选模型设置透明的费用目标。** 应用可以让每个用户预设普通任务使用首选模型的周期费用上限；触发占比控制线或分配上限后，普通任务自动进入经过审核的低成本模型梯队。
+
+```text
+每月 $20 模型组合
+质量模型分配上限       <= 40%  ████████
+共享余额目标           >= 60%  ████████████
+```
+
+这是普通任务的首选模型分配上限，不是隔离资金池：受保护任务和一次质量升级可以超过它，其他请求也可能先用完共享的周期准入额度。
+
+`model_budget_autopilot.py` 使用不可变 SQLite 路由决策和原子费用预留，处理冷启动、并发请求、防抖恢复线、安全/发布/迁移任务保护、迟到 usage、用量超出预估、请求内容绑定、提供商响应去重、可续期租约，以及最多一次由质量证据触发的向上重试。只有本次预计费用不高于请求模型时才会选择回退模型。
+
+运行不联网的确定性证明场景：
+
+```bash
+python skills/ai-project-copilot/scripts/model_budget_autopilot.py \
+  simulate --format json
+```
+
+这个合成输出会列出第一次降级、一个刻意构造的 incomplete 响应、唯一一次获准升级，以及最终通过质量门禁的模型；它是离线控制流测试，不是真实模型调用。这个功能控制的是**费用分配**；低成本模型不保证使用更少 Token，因此在对同一批真实任务做前后对照之前，Token 节省仍应标记为未知。集成、价格、生命周期和信任边界见 [`references/model-budget-autopilot.md`](skills/ai-project-copilot/references/model-budget-autopilot.md)。
 
 ## 对标主流 Skill 后加入了什么
 

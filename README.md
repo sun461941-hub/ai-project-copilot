@@ -84,7 +84,7 @@ pytest -v 2>&1 | \
 
 `evidence_cache.py` can reuse only **passing, non-critical** evidence when the command and declared input-file content hashes match exactly. Security, release, deploy, migration, permissions, and final integration gates always bypass the cache. `.aipc/` cache state is gitignored.
 
-The Skill core is now **213 lines** and pushes lane-specific detail into references. This follows the same design target as the rest of v2: give the agent a map and the minimum active rules, not a giant manual.
+The Skill core stays **under 250 lines** and pushes lane-specific detail into references. This follows the same design target as the rest of v2: give the agent a map and the minimum active rules, not a giant manual.
 
 Reproducible context-efficiency fixtures live in [`benchmarks/`](benchmarks/). Their path/log character metrics are context-size **proxies**, not measured Codex tokens. Actual input/cached/reasoning/output token claims require client/API usage telemetry.
 
@@ -97,6 +97,47 @@ A local Linux / Python 3.13.5 run (15 repeats for each context case) produced:
 | DEEP security/release | 2,400 | 9 | 99.6637% | 49.521 ms vs 46.851 ms (**~5.7% overhead**) |
 
 A synthetic 5,003-line test log was reduced from 184,074 to 949 characters (99.4844%) while preserving both failure markers, the final summary, and the normalized raw-log SHA-256. These numbers measure deterministic preprocessing only; they are **not Codex generation-speed or token-savings claims**.
+
+## Model Budget Autopilot
+
+**Set a transparent preferred-model spending target.** Applications can let each user
+cap ordinary preferred-model spend at a percentage of a period budget, then route
+ordinary work through a reviewed fallback ladder when that allocation ceiling
+or its share-control line is reached.
+
+```text
+$20 monthly portfolio
+quality model allocation  <= 40%  ████████
+shared remainder target   >= 60%  ████████████
+```
+
+This is an ordinary-work allocation ceiling, not a ring-fenced balance:
+protected tasks and a quality upgrade may exceed it, while other requests can
+consume the shared period admission cap.
+
+`model_budget_autopilot.py` uses immutable SQLite route decisions and atomic
+cost reservations. It handles cold start, concurrent requests, a lower restore
+line to prevent route flapping, protected security/release/migration tasks, late
+usage, usage overruns, request-payload binding, provider-response deduplication,
+renewable leases, and one quality-gated upward retry. A fallback is never chosen
+when its projected request cost is higher than the requested model's.
+
+Run the network-free proof scenario:
+
+```bash
+python skills/ai-project-copilot/scripts/model_budget_autopilot.py \
+  simulate --format json
+```
+
+The synthetic result lists the first fallback, an intentionally incomplete
+response, the single authorized upgrade, and the final quality-gated selected
+model. It is an
+offline control-flow test, not a live model call. This feature controls
+**cost allocation**. A lower-cost model does not inherently consume fewer
+tokens, so Token savings remain unknown until the same real tasks are measured
+before and after. See
+[`references/model-budget-autopilot.md`](skills/ai-project-copilot/references/model-budget-autopilot.md)
+for integration, pricing, lifecycle, and trust boundaries.
 
 ## What was added after benchmarking mainstream Agent Skills
 

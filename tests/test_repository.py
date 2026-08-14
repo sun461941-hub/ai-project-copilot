@@ -156,6 +156,21 @@ class RepositoryTests(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertEqual(b"keep-me", output.read_bytes())
 
+    def test_packager_refuses_symlinked_skill_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            link = Path(temp) / "ai-project-copilot"
+            try:
+                link.symlink_to(SKILL, target_is_directory=True)
+            except OSError:
+                self.skipTest("symlinks unavailable")
+            output = Path(temp) / "skill.zip"
+            result = run(
+                "tools/package_skill.py", str(link), "--output", str(output), check=False
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("must not be a symlink", result.stderr)
+            self.assertFalse(output.exists())
+
     def test_checked_in_ranking_example_is_reproducible(self) -> None:
         result = run(
             str(SKILL / "scripts" / "rank_blueprints.py"),
