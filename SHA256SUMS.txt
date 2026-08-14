@@ -1,0 +1,2 @@
+d88edf534e75efb9f9c464f02d197900c5c1d7761ed1e65270068dcfb4ee7c07  ai-project-copilot-repair-from-245cefc.patch
+8952405c118771f0a1996324a4d102330deadb8e256769fbb94323895ef65688  ai-project-copilot-fixed-source.zip
