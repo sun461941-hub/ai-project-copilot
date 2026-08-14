@@ -228,7 +228,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
                 "unsettleable-total", "economy", self.mod.SQLITE_MAX_INT,
                 output=self.mod.SQLITE_MAX_INT,
             )
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 0, connection.execute("SELECT COUNT(*) FROM route_decisions").fetchone()[0]
             )
@@ -537,7 +537,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         self.assertEqual(2, record.actual_cost_nano_usd)
         self.assertEqual(maximum * 2 - 2, record.estimated_savings_vs_requested_nano_usd)
         self.assertEqual(2, self.mod.get_status(self.db, self.user, now=self.now).committed_nano_usd)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0])
             stored = connection.execute(
                 "SELECT typeof(estimated_savings_nano_usd), estimated_savings_nano_usd "
@@ -568,7 +568,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         )
         self.assertTrue(record.over_period_budget)
         self.assertEqual("18446744073.709551614", record.actual_cost_usd)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             stored = connection.execute(
                 "SELECT typeof(actual_cost_nano_usd), actual_cost_nano_usd "
                 "FROM usage_events"
@@ -635,7 +635,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
 
     def test_usage_insert_aborts_even_if_schema_default_is_replace(self) -> None:
         self.configure(budget=100)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             sql = connection.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='usage_events'"
             ).fetchone()[0]
@@ -666,7 +666,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
                 "replace-two", second.selected_model, 10,
                 provider_id="replace-provider-response",
             )
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 1, connection.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0]
             )
@@ -772,7 +772,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             self.db, self.user, "legacy-attempt", "fail", "legacy failure", now=self.now
         )
         self.assertTrue(quality.upgrade_recommended)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute(
                 "UPDATE route_decisions SET policy_version=? WHERE request_hash=?",
                 ("model-budget-autopilot-v1", fallback.request_hash),
@@ -903,7 +903,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         self.assertEqual(10, len(allowed))
         self.assertEqual(10, len(blocked))
         self.assertEqual(100, self.mod.get_status(self.db, self.user, now=self.now).reserved_nano_usd)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual("ok", connection.execute("PRAGMA integrity_check").fetchone()[0])
 
     def test_concurrent_same_request_creates_one_reservation(self) -> None:
@@ -923,6 +923,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_writer_lock_uses_bounded_retry_then_succeeds(self) -> None:
         self.configure()
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("BEGIN IMMEDIATE")
         retry_sleeps: list[float] = []
         real_sleep = time.sleep
@@ -960,6 +961,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_writer_lock_timeout_leaves_no_route_facts(self) -> None:
         self.configure()
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("BEGIN IMMEDIATE")
         try:
             with (
@@ -972,7 +974,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         finally:
             holder.rollback()
             holder.close()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 0,
                 connection.execute(
@@ -1004,6 +1006,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_initialized_connect_does_not_take_the_writer_lock(self) -> None:
         self.configure()
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("BEGIN IMMEDIATE")
         try:
             connection = self.mod._connect(self.db)
@@ -1015,6 +1018,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_cold_schema_writer_lock_retries_then_initializes_atomically(self) -> None:
         self.db.parent.mkdir(parents=True)
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("PRAGMA journal_mode=WAL")
         holder.execute("BEGIN IMMEDIATE")
         real_sleep = time.sleep
@@ -1051,6 +1055,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_cold_schema_lock_timeout_leaves_no_partial_schema(self) -> None:
         self.db.parent.mkdir(parents=True)
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("PRAGMA journal_mode=WAL")
         holder.execute("BEGIN IMMEDIATE")
         try:
@@ -1064,7 +1069,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         finally:
             holder.rollback()
             holder.close()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(0, connection.execute("PRAGMA user_version").fetchone()[0])
             self.assertEqual(
                 0,
@@ -1076,6 +1081,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_cold_delete_schema_exclusive_lock_is_retried(self) -> None:
         self.db.parent.mkdir(parents=True)
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("BEGIN EXCLUSIVE")
         real_sleep = time.sleep
 
@@ -1098,7 +1104,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             if holder.in_transaction:
                 holder.rollback()
             holder.close()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 self.mod.SCHEMA_VERSION,
                 connection.execute("PRAGMA user_version").fetchone()[0],
@@ -1108,6 +1114,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_cold_delete_exclusive_timeout_leaves_no_partial_schema(self) -> None:
         self.db.parent.mkdir(parents=True)
         holder = sqlite3.connect(self.db)
+        self.addCleanup(holder.close)
         holder.execute("BEGIN EXCLUSIVE")
         try:
             with (
@@ -1120,7 +1127,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         finally:
             holder.rollback()
             holder.close()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(0, connection.execute("PRAGMA user_version").fetchone()[0])
             self.assertEqual(
                 0,
@@ -1140,7 +1147,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             if injected:
                 return
             injected = True
-            with sqlite3.connect(self.db) as competitor:
+            with contextlib.closing(sqlite3.connect(self.db)) as competitor, competitor:
                 competitor.execute(f"PRAGMA user_version={self.mod.SCHEMA_VERSION + 1}")
 
         with (
@@ -1148,7 +1155,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "newer than supported"),
         ):
             self.route("future-schema-race", "balanced", 10)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 0,
                 connection.execute(
@@ -1169,7 +1176,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             if injected:
                 return
             injected = True
-            with sqlite3.connect(self.db) as competitor:
+            with contextlib.closing(sqlite3.connect(self.db)) as competitor, competitor:
                 competitor.execute("CREATE TABLE future_marker (value TEXT)")
                 competitor.execute(f"PRAGMA user_version={self.mod.SCHEMA_VERSION + 1}")
 
@@ -1178,7 +1185,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "newer than supported"),
         ):
             self.mod._connect(self.db)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 self.mod.SCHEMA_VERSION + 1,
                 connection.execute("PRAGMA user_version").fetchone()[0],
@@ -1198,7 +1205,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         september = dt.datetime(2026, 9, 1, tzinfo=dt.timezone.utc)
         status = self.mod.get_status(self.db, self.user, now=september)
         self.assertEqual(0, status.committed_nano_usd)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0])
 
     def test_fallback_state_resets_at_cycle_boundary(self) -> None:
@@ -1277,7 +1284,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
 
     def test_database_schema_version_and_exact_money_types_are_enforced(self) -> None:
         self.configure()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 self.mod.SCHEMA_VERSION,
                 connection.execute("PRAGMA user_version").fetchone()[0],
@@ -1297,29 +1304,29 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         ):
             self.assertEqual("TEXT", usage_types[name])
 
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute("PRAGMA user_version=0")
         upgraded = self.mod._connect(self.db)
         upgraded.close()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             self.assertEqual(
                 self.mod.SCHEMA_VERSION,
                 connection.execute("PRAGMA user_version").fetchone()[0],
             )
 
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute(f"PRAGMA user_version={self.mod.SCHEMA_VERSION + 1}")
         with self.assertRaisesRegex(ValueError, "newer than supported"):
             self.mod._connect(self.db)
 
     def test_schema_preflight_rejects_incompatible_files_before_ddl(self) -> None:
         future = Path(self.temp.name) / "future.sqlite3"
-        with sqlite3.connect(future) as connection:
+        with contextlib.closing(sqlite3.connect(future)) as connection, connection:
             connection.execute("CREATE TABLE future_marker (value TEXT)")
             connection.execute(f"PRAGMA user_version={self.mod.SCHEMA_VERSION + 1}")
         with self.assertRaisesRegex(ValueError, "newer than supported"):
             self.mod._connect(future)
-        with sqlite3.connect(future) as connection:
+        with contextlib.closing(sqlite3.connect(future)) as connection, connection:
             names = {
                 row[0]
                 for row in connection.execute(
@@ -1329,7 +1336,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         self.assertEqual({"future_marker"}, names)
 
         incompatible = Path(self.temp.name) / "incompatible.sqlite3"
-        with sqlite3.connect(incompatible) as connection:
+        with contextlib.closing(sqlite3.connect(incompatible)) as connection, connection:
             connection.execute(
                 "CREATE TABLE budget_users "
                 "(user_hash TEXT PRIMARY KEY, period_budget_nano_usd REAL)"
@@ -1337,7 +1344,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             connection.execute(f"PRAGMA user_version={self.mod.SCHEMA_VERSION}")
         with self.assertRaisesRegex(ValueError, "columns/types"):
             self.mod._connect(incompatible)
-        with sqlite3.connect(incompatible) as connection:
+        with contextlib.closing(sqlite3.connect(incompatible)) as connection, connection:
             names = {
                 row[0]
                 for row in connection.execute(
@@ -1347,11 +1354,11 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         self.assertEqual({"budget_users"}, names)
 
         uppercase = Path(self.temp.name) / "uppercase.sqlite3"
-        with sqlite3.connect(uppercase) as connection:
+        with contextlib.closing(sqlite3.connect(uppercase)) as connection, connection:
             connection.execute("CREATE TABLE BUDGET_USERS (value REAL)")
         with self.assertRaisesRegex(ValueError, "budget_users object"):
             self.mod._connect(uppercase)
-        with sqlite3.connect(uppercase) as connection:
+        with contextlib.closing(sqlite3.connect(uppercase)) as connection, connection:
             objects = connection.execute(
                 "SELECT type, name FROM sqlite_master "
                 "WHERE type IN ('table', 'view') ORDER BY name"
@@ -1361,11 +1368,11 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         self.assertNotEqual("wal", journal)
 
         view = Path(self.temp.name) / "view.sqlite3"
-        with sqlite3.connect(view) as connection:
+        with contextlib.closing(sqlite3.connect(view)) as connection, connection:
             connection.execute("CREATE VIEW budget_users AS SELECT 1 AS value")
         with self.assertRaisesRegex(ValueError, "budget_users object"):
             self.mod._connect(view)
-        with sqlite3.connect(view) as connection:
+        with contextlib.closing(sqlite3.connect(view)) as connection, connection:
             objects = connection.execute(
                 "SELECT type, name FROM sqlite_master "
                 "WHERE type IN ('table', 'view') ORDER BY name"
@@ -1376,7 +1383,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
 
     def test_schema_contract_rejects_relaxed_reservation_status_check(self) -> None:
         self.configure()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             sql = connection.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='reservations'"
             ).fetchone()[0]
@@ -1399,7 +1406,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
     def test_unknown_reservation_state_is_conservatively_accounted(self) -> None:
         self.configure(budget=100, maximum=99, restore=90, startup=99)
         first = self.route("legacy-pending", "economy", 80)
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute("PRAGMA ignore_check_constraints=ON")
             connection.execute(
                 "UPDATE reservations SET status='pending' WHERE request_hash=?",
@@ -1415,7 +1422,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
 
     def test_schema_contract_rejects_unexpected_triggers(self) -> None:
         self.configure()
-        with sqlite3.connect(self.db) as connection:
+        with contextlib.closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute(
                 "CREATE TRIGGER mutate_budget AFTER UPDATE ON budget_users "
                 "BEGIN SELECT 1; END"

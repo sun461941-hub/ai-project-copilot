@@ -18,6 +18,7 @@ All notable changes to AI Project Copilot are documented here.
 - a configuration change invalidates both late and still-unconsumed automatic upgrades derived from the previous model ladder, preventing permanent reconfiguration locks and stale upgrade execution;
 - actual usage settlement is independent of whether the requested-model counterfactual exceeds SQLite's integer range;
 - initialized ledgers no longer reacquire a schema writer lock on every request, and transient SQLite writer contention now receives bounded busy retry before surfacing an error;
+- test-owned SQLite connections now close deterministically after transaction exit, preventing Python 3.14 resource warnings and Windows temporary-file cleanup failures;
 - only the first reservation-creating route response carries execution authority; every replay clears the executable model, exposes `execution_authorized=false`, and returns a distinct nonzero CLI status;
 - schema-version and structural schema-contract checks reject incompatible ledgers before DDL and recheck after the writer lock to stop rolling-upgrade races; fact inserts explicitly abort on conflicts, and CLI nano-USD fields use decimal strings to preserve wire precision;
 - all money uses integer nano-USD and all failed/retried attempts stay in final cost and Token totals;
