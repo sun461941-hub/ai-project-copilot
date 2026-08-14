@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "metric_policy": "Repository-path characters and tool-output characters are deterministic context-size proxies, not actual Codex token counts.",
+  "cases": [
+    {
+      "id": "fast-docs",
+      "files": 1400,
+      "task": "Fix a typo in README documentation",
+      "changed_files": ["README.md"],
+      "expected_mode": "FAST"
+    },
+    {
+      "id": "balanced-feature",
+      "files": 1800,
+      "task": "Add a CLI feature and regression tests",
+      "changed_files": ["src/cli.py", "tests/test_cli.py"],
+      "expected_mode": "BALANCED"
+    },
+    {
+      "id": "deep-security-release",
+      "files": 2400,
+      "task": "Audit security permissions and prepare the release workflow",
+      "changed_files": ["src/auth/session.py", ".github/workflows/release.yml", "SECURITY.md"],
+      "expected_mode": "DEEP"
+    }
+  ]
+}

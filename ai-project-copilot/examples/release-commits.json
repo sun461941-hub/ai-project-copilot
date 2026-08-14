@@ -1,0 +1,8 @@
+{
+  "commits": [
+    "feat: add repository context mapping",
+    "feat(review): add deterministic PR risk lanes",
+    "fix: handle empty issue bodies",
+    "security: harden workflow permission review"
+  ]
+}

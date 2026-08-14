@@ -1,0 +1,21 @@
+id,split,should_trigger,prompt,expected_scope
+trigger-01,train,true,Use $ai-project-copilot to turn this repository into a launch-ready AI product with one strong vertical slice.,explicit invocation
+trigger-02,train,true,"I have a vague AI app idea. Pick the most compelling direction, build an MVP plan, and make it GitHub-demo ready.",greenfield project direction
+trigger-03,train,true,"Audit my existing app and add the single highest-value AI capability, not a generic chatbot.",existing repository retrofit
+trigger-04,train,true,"Help me design a local-first Android AI runtime with user-imported models, privacy boundaries, benchmarks, and a demo.",local on-device architecture
+trigger-05,train,true,"Make this hackathon repo look credible: real AI workflow, evals, streaming UX, README, screenshot plan, and 60-second demo.",showcase and evidence
+trigger-06,train,true,"Help maintain this open-source AI repository: triage incoming issues, identify good first issues, review missing evidence, and prepare a maintainer report without auto-closing anything.",maintainer issue triage
+trigger-07,validation,true,Can you propose five visually impressive open-source AI projects and rank them by local-first feasibility and demo strength?,project blueprint ranking
+trigger-08,validation,true,"Add citations, tool approval, prompt-injection defenses, and regression evals to this research assistant, then polish the release.",trustworthy AI product work
+trigger-09,validation,true,Turn my CI trace parser into an interactive build replay product with privacy-safe exports and cross-platform tests.,Codex Build Visualizer-like project
+trigger-10,validation,true,我想维护这个开源 AI 仓库：先根据证据整理 Issue 和 PR，再检查发布阻塞项、贡献者入口和版本说明，不要自动合并或关闭。,Chinese maintainer workflow request
+negative-01,train,false,Fix the off-by-one error in src/pagination.py and add a unit test.,isolated bug fix
+negative-02,train,false,Review this pull request for style issues only.,generic code review
+negative-03,train,false,Upgrade React to the latest version and resolve dependency warnings.,routine dependency update
+negative-04,train,false,Explain what retrieval-augmented generation means in simple terms.,concept explanation
+negative-05,train,false,Write a Python function that calls an LLM API once and prints the response.,narrow coding task
+negative-06,train,false,Translate this README from English to Chinese without changing its structure.,translation
+negative-07,validation,false,Add a loading spinner to the existing chat screen.,small UI change near AI keywords
+negative-08,validation,false,Why is my API key returning HTTP 401?,integration troubleshooting
+negative-09,validation,false,Summarize the test failures in this pasted log.,single analysis task
+negative-10,validation,false,Create a LICENSE file for my repository.,repository hygiene only

@@ -1,0 +1,99 @@
+[
+  {
+    "id": "android-local-video-runtime",
+    "name": "Android Local Video Runtime",
+    "category": "On-device AI",
+    "pitch": "A model-agnostic Android runtime that lets users import legally obtained video models and run short generation jobs through GPU, NPU, or CPU backends.",
+    "wow": "Import a model package, generate a short clip fully offline, and show live memory, thermal, latency, and backend telemetry on the phone.",
+    "mvp": "One supported architecture, model manifest, user import flow, one backend adapter, 384×384 short clip pipeline, MP4 export, and benchmark screen.",
+    "modules": [
+      "local-on-device",
+      "image-video",
+      "observability-replay",
+      "privacy-security",
+      "model-routing"
+    ],
+    "tags": [
+      "android",
+      "local-first",
+      "video",
+      "systems",
+      "privacy",
+      "visual-demo",
+      "mobile"
+    ],
+    "complexity": "large",
+    "score": 23,
+    "matched_priorities": [
+      "android",
+      "local-first",
+      "video",
+      "visual-demo"
+    ],
+    "matched_constraints": [
+      "mobile",
+      "privacy"
+    ]
+  },
+  {
+    "id": "codex-build-visualizer",
+    "name": "Codex Build Visualizer",
+    "category": "Developer tools",
+    "pitch": "Turn agent traces, tool calls, file edits, builds, and tests into a privacy-safe interactive timeline and dependency graph.",
+    "wow": "Drop in a JSONL trace and scrub through the entire build while files, commands, approvals, failures, and recovery events animate in sync.",
+    "mvp": "Trace ingestion, strict redaction, timeline view, file/tool graph, failure markers, session replay, and static export.",
+    "modules": [
+      "observability-replay",
+      "streaming-progress",
+      "privacy-security",
+      "export-share"
+    ],
+    "tags": [
+      "developer-tools",
+      "observability",
+      "visual-demo",
+      "local-first",
+      "privacy",
+      "open-source"
+    ],
+    "complexity": "medium",
+    "score": 13,
+    "matched_priorities": [
+      "local-first",
+      "visual-demo"
+    ],
+    "matched_constraints": [
+      "privacy"
+    ]
+  },
+  {
+    "id": "on-device-multimodal-assistant",
+    "name": "On-Device Multimodal Assistant",
+    "category": "On-device AI",
+    "pitch": "Run useful text, image, and audio tasks locally with explicit hardware capability detection and graceful cloud-free fallbacks.",
+    "wow": "Disconnect the network, point the phone at an object or document, and complete a useful task while showing exactly what stayed on device.",
+    "mvp": "Capability probe, one vision task, one text task, optional speech input, model manager, resource controls, and privacy dashboard.",
+    "modules": [
+      "local-on-device",
+      "multimodal-input",
+      "voice-realtime",
+      "privacy-security"
+    ],
+    "tags": [
+      "local-first",
+      "mobile",
+      "multimodal",
+      "privacy",
+      "offline"
+    ],
+    "complexity": "large",
+    "score": 11,
+    "matched_priorities": [
+      "local-first"
+    ],
+    "matched_constraints": [
+      "mobile",
+      "privacy"
+    ]
+  }
+]
