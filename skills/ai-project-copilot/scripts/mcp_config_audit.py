@@ -56,7 +56,9 @@ def _is_secret_key(key: str) -> bool:
     # accidents such as `tokenizer` or `secretaryMode`.
     expanded = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
     normalized = re.sub(r"[^A-Za-z0-9]+", "_", expanded).strip("_").casefold()
-    if normalized in SECRET_KEY_COMPOUNDS:
+    # Accept a vendor/application prefix (OPENAI_API_KEY, anthropicApiKey,
+    # MY_SERVICE_ACCESS_TOKEN) while still avoiding generic ``key`` matches.
+    if any(normalized == compound or normalized.endswith(f"_{compound}") for compound in SECRET_KEY_COMPOUNDS):
         return True
     parts = [part for part in normalized.split("_") if part]
     return any(part in SECRET_KEY_PARTS for part in parts)

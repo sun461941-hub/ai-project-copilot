@@ -1,4 +1,0 @@
-{
-  "title": "README install command contains a typo",
-  "body": "The README install example says pythn instead of python. This is a small documentation fix and the expected command is clear. I can submit a patch with the corrected example."
-}

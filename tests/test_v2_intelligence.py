@@ -73,6 +73,18 @@ class V2IntelligenceTests(unittest.TestCase):
             self.assertIn(".github/workflows/ci.yml", result.ci)
             self.assertTrue(any(item["path"] == "src/auth/login.py" for item in result.focus_files))
 
+    def test_repo_context_maps_explicit_chinese_auth_wording_to_auth_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "src" / "auth").mkdir(parents=True)
+            (repo / "src" / "auth" / "login.py").write_text("def login(): pass\n", encoding="utf-8")
+            (repo / "tests").mkdir()
+            (repo / "tests" / "test_login.py").write_text("def test_login(): pass\n", encoding="utf-8")
+            (repo / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+
+            result = self.context.build_context(repo, "审查认证模块修改")
+            self.assertTrue(any(item["path"] == "src/auth/login.py" for item in result.focus_files))
+
     def test_repo_context_ignores_generic_focus_stopwords(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -228,6 +240,25 @@ class V2IntelligenceTests(unittest.TestCase):
             report = self.mcp.scan(repo)
             self.assertIn("unpinned-runner-package", {item.code for item in report.findings})
 
+    def test_mcp_audit_detects_vendor_prefixed_api_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / ".mcp.json").write_text(
+                json.dumps({
+                    "mcpServers": {
+                        "literal": {"OPENAI_API_KEY": "sk-live-1234567890"},
+                        "referenced": {"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"},
+                    }
+                }),
+                encoding="utf-8",
+            )
+            report = self.mcp.scan(repo)
+            secret_locations = {
+                item.location for item in report.findings if item.code == "hardcoded-secret"
+            }
+            self.assertIn("$.mcpServers.literal.OPENAI_API_KEY", secret_locations)
+            self.assertNotIn("$.mcpServers.referenced.ANTHROPIC_API_KEY", secret_locations)
+
     def test_supply_chain_manifest_cannot_hash_itself(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -298,7 +329,7 @@ class V2IntelligenceTests(unittest.TestCase):
     def test_skill_eval_suite_is_substantive(self) -> None:
         data = json.loads((SKILL / "evals" / "evals.json").read_text(encoding="utf-8"))
         self.assertEqual("ai-project-copilot", data["skill_name"])
-        self.assertEqual("2.0.0", data["version"])
+        self.assertEqual("2.1.0", data["version"])
         self.assertGreaterEqual(len(data["evals"]), 16)
         self.assertTrue(all(item.get("expectations") for item in data["evals"]))
 
@@ -309,7 +340,7 @@ class V2IntelligenceTests(unittest.TestCase):
 
     def test_v2_skill_is_context_bounded(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn('version: "2.0.0"', text)
+        self.assertIn('version: "2.1.0"', text)
         self.assertLessEqual(len(text.splitlines()), 500)
         for name in (
             "capability-router.md", "codebase-context.md", "pr-review-loop.md",

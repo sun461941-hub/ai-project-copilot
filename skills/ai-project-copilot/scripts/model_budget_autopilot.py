@@ -1184,6 +1184,25 @@ def get_status(db: Path, user_key: str, *, now: dt.datetime | None = None) -> Bu
         connection.close()
 
 
+def get_config(db: Path, user_key: str, *, now: dt.datetime | None = None) -> BudgetConfig:
+    """Return the current immutable routing configuration for a trusted gateway."""
+    user_hash = _hash_identifier(_identifier(user_key, "user_key"), "user")
+    explicit_now = _utc(now) if now is not None else None
+    connection = _connect(db)
+    try:
+        _begin_immediate(connection)
+        current = explicit_now or _utc()
+        _expire_reservations(connection, current)
+        result = _load_config(connection, user_hash, current)
+        connection.commit()
+        return result
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
 def _price_map(cards: Sequence[PriceCard]) -> dict[str, PriceCard]:
     return {card.model: card for card in cards}
 
@@ -1285,7 +1304,8 @@ def route_request(
     projected_input_tokens: int,
     projected_output_tokens: int,
     *,
-    request_payload_sha256: str,
+    request_payload_sha256: str | None = None,
+    request_payload_builder: Callable[[str], bytes] | None = None,
     projected_cached_tokens: int | None = None,
     projected_cache_write_tokens: int | None = None,
     projected_extra_cost_nano_usd: int = 0,
@@ -1293,6 +1313,7 @@ def route_request(
     logical_request_id: str | None = None,
     parent_request_id: str | None = None,
     reservation_ttl_seconds: int = DEFAULT_RESERVATION_TTL_SECONDS,
+    expected_config_version: int | None = None,
     now: dt.datetime | None = None,
 ) -> RouteDecision:
     """Atomically select a model and reserve its conservative projected cost."""
@@ -1300,7 +1321,25 @@ def route_request(
     request_id = _identifier(request_id, "request_id")
     request_hash = _hash_identifier(request_id, "request")
     requested = _identifier(requested_model, "requested_model")
-    payload_hash = _payload_sha256(request_payload_sha256)
+    if (request_payload_sha256 is None) == (request_payload_builder is None):
+        raise ValueError(
+            "provide exactly one of request_payload_sha256 or request_payload_builder"
+        )
+    fixed_payload_hash = (
+        _payload_sha256(request_payload_sha256)
+        if request_payload_sha256 is not None else None
+    )
+
+    def payload_hash_for(model: str) -> str:
+        if fixed_payload_hash is not None:
+            return fixed_payload_hash
+        assert request_payload_builder is not None
+        payload_bytes = request_payload_builder(model)
+        if not isinstance(payload_bytes, bytes) or not payload_bytes:
+            raise ValueError("request_payload_builder must return non-empty bytes")
+        if len(payload_bytes) > MAX_JSON_BYTES:
+            raise ValueError(f"built provider request exceeds {MAX_JSON_BYTES} bytes")
+        return hashlib.sha256(payload_bytes).hexdigest()
     input_tokens = _nonnegative_int(projected_input_tokens, "projected_input_tokens")
     output_tokens = _nonnegative_int(projected_output_tokens, "projected_output_tokens")
     extra_cost = _nonnegative_int(
@@ -1340,6 +1379,10 @@ def route_request(
         raise ValueError(
             f"reservation_ttl_seconds cannot exceed {MAX_RESERVATION_TTL_SECONDS}"
         )
+    expected_version = (
+        _positive_int(expected_config_version, "expected_config_version")
+        if expected_config_version is not None else None
+    )
     explicit_now = _utc(now) if now is not None else None
     supplied_logical_hash = (
         _hash_identifier(_identifier(logical_request_id, "logical_request_id"), "logical")
@@ -1371,15 +1414,27 @@ def route_request(
             logical_hash = supplied_logical_hash or _hash_identifier(request_id, "logical")
             attempt_number = 1
 
-        fingerprint = _fingerprint([
-            logical_hash, parent_hash, payload_hash, requested, input_tokens, cached_tokens,
-            cache_write_tokens, output_tokens, extra_cost, task_class, ttl,
-        ])
         existing = connection.execute(
             "SELECT * FROM route_decisions WHERE user_hash=? AND request_hash=?",
             (user_hash, request_hash),
         ).fetchone()
         if existing is not None:
+            if (
+                expected_version is not None
+                and int(existing["config_version"]) != expected_version
+            ):
+                raise ValueError(
+                    "request decision belongs to a different configuration version"
+                )
+            replay_model = (
+                str(existing["selected_model"])
+                if existing["selected_model"] is not None else requested
+            )
+            replay_payload_hash = payload_hash_for(replay_model)
+            fingerprint = _fingerprint([
+                logical_hash, parent_hash, replay_payload_hash, requested, input_tokens,
+                cached_tokens, cache_write_tokens, output_tokens, extra_cost, task_class, ttl,
+            ])
             if str(existing["fingerprint"]) != fingerprint:
                 raise ValueError("request_id already has a different immutable routing decision")
             result = _decision_from_row(connection, existing, reservation_created=False)
@@ -1387,6 +1442,10 @@ def route_request(
             return result
 
         config = _load_config(connection, user_hash, current)
+        if expected_version is not None and config.config_version != expected_version:
+            raise ValueError(
+                "model budget configuration changed after request projection"
+            )
         if parent is not None and (
             int(parent["config_version"]) != config.config_version
             or str(parent["policy_version"]) != POLICY_VERSION
@@ -1518,6 +1577,12 @@ def route_request(
             else:
                 reason = "user-requested non-preferred model fits the period admission cap"
             notice = False
+
+        payload_hash = payload_hash_for(selected or requested)
+        fingerprint = _fingerprint([
+            logical_hash, parent_hash, payload_hash, requested, input_tokens, cached_tokens,
+            cache_write_tokens, output_tokens, extra_cost, task_class, ttl,
+        ])
 
         expires_at = current + dt.timedelta(seconds=ttl) if selected is not None else None
         expires_epoch = _epoch_seconds_ceiling(expires_at) if expires_at is not None else None

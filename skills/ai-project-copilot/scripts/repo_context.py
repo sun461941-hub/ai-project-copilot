@@ -44,6 +44,20 @@ TASK_STOPWORDS = {
     "with", "from", "for", "please", "into", "by", "as", "is", "are", "be",
 }
 
+# Small, path-oriented aliases for common authentication task wording.  This
+# is deliberately not a general translation table: aliases are added only
+# when a complete English token or an explicit Chinese phrase is present.
+TASK_TOKEN_ALIASES = {
+    "authentication": {"auth"},
+    "authenticate": {"auth"},
+    "authorization": {"auth"},
+    "authorize": {"auth"},
+    "signin": {"auth", "login"},
+    "认证": {"auth"},
+    "身份验证": {"auth"},
+    "登录": {"auth", "login"},
+}
+
 
 @dataclass(frozen=True)
 class ContextMap:
@@ -110,11 +124,17 @@ def _is_test_path(rel: str) -> bool:
     )
 
 def _task_tokens(task: str) -> set[str]:
-    return {
+    normalized = task.casefold()
+    tokens = {
         token
-        for token in re.findall(r"[A-Za-z0-9_\-\u4e00-\u9fff]+", task.casefold())
+        for token in re.findall(r"[A-Za-z0-9_\-\u4e00-\u9fff]+", normalized)
         if len(token) >= 2 and token not in TASK_STOPWORDS
     }
+    for phrase, aliases in TASK_TOKEN_ALIASES.items():
+        is_chinese_phrase = any("\u4e00" <= char <= "\u9fff" for char in phrase)
+        if (phrase in normalized if is_chinese_phrase else phrase in tokens):
+            tokens.update(aliases)
+    return tokens
 
 
 def build_context(root: Path, task: str = "", max_files: int = 5000) -> ContextMap:

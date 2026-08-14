@@ -22,24 +22,32 @@ This roadmap describes intended directions, not promises or compatibility guaran
 - portable skill-level eval suite;
 - cross-agent, human-confirmed write model;
 - FAST/BALANCED/DEEP context budgets, sparse FAST path, changed-file context compilation, tool-output compaction, and exact-fingerprint non-critical evidence cache;
-- lean 213-line Skill core with progressive lane references and reproducible context-efficiency benchmarks.
+- lean Skill core (213 lines at v2.0) with progressive lane references and reproducible context-efficiency benchmarks.
 
-## v2.1 — Connected GitHub evidence adapters
+## v2.1 — Live-capable model-budget evidence ✅
 
-- optional client/API usage telemetry adapters for actual input/cached/reasoning/output token measurements;
+- live-capable text-input OpenAI Responses gateway with exact input counting,
+  streaming, reported-usage settlement, TTFT/E2E telemetry, and one quality-gated
+  upgrade, tested in CI through deterministic injected transports;
+- paired provider-run Token, price-card cost, and latency comparison;
+- executable structural/deterministic Skill eval runner;
+- official Skill frontmatter compatibility and targeted context/security fixes.
+
+## v2.2 — Connected GitHub evidence adapters
+
 - normalized read-only import for issue/PR/release/workflow exports;
 - compare local deterministic reports with GitHub-native status evidence;
 - contributor and maintenance trend snapshots from user-authorized data;
 - no automatic mutation by default.
 
-## v2.2 — Review memory without hidden state
+## v2.3 — Review memory without hidden state
 
 - explicit run-state ledger;
 - carry forward unresolved review/security/release decisions;
 - stable evidence IDs across iterations;
 - import/exportable JSON session state rather than opaque agent memory.
 
-## v2.3 — Ecosystem interoperability
+## v2.4 — Ecosystem interoperability
 
 - compatibility self-check for major Agent Skills clients;
 - optional public registry discovery/update handoff when explicitly requested;

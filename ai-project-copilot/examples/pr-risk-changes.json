@@ -1,8 +1,0 @@
-{
-  "changes": [
-    {"path": "src/auth/middleware.py", "additions": 120, "deletions": 30},
-    {"path": "migrations/20260813_add_session_scope.sql", "additions": 44, "deletions": 0},
-    {"path": ".github/workflows/ci.yml", "additions": 12, "deletions": 5},
-    {"path": "docs/authentication.md", "additions": 18, "deletions": 2}
-  ]
-}

@@ -2,13 +2,12 @@
 name: ai-project-copilot
 description: Use this skill to turn an AI idea or existing repository into a credible open-source product and to run evidence-first repository engineering across codebase discovery, context-efficient Codex workflows, issue triage, PR risk review, tests/evals, release preparation, supply-chain/MCP security, contributor onboarding, and GitHub showcase quality. Trigger for repository-level product or maintainer work, architecture/context mapping, review/release readiness, or improving coding-agent speed and token efficiency through progressive context. Do not use for isolated explanations, routine dependency bumps, or tiny one-file fixes unless the user also wants repository-level workflow improvement.
 license: MIT
-compatibility: Designed for ChatGPT, Codex, GitHub Copilot, Claude-compatible clients, and other agents that implement the Agent Skills format. Deterministic helpers require Python 3.10+; Git-backed modes optionally use the local git executable.
 metadata:
   author: sun461941-hub
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
-# AI Project Copilot 2.0
+# AI Project Copilot 2.1
 
 ## Mission
 
@@ -50,6 +49,8 @@ Use **FAST / BALANCED / DEEP** as workload budgets, not quality levels. Read `re
 The Skill cannot increase Codex backend tokens-per-second, quota, or force a reasoning setting. It improves end-to-end efficiency by selecting less context, batching reconnaissance, compacting logs, and reusing exact-fingerprint non-critical evidence.
 
 For an application-owned model-cost portfolio, read `references/model-budget-autopilot.md`. `scripts/model_budget_autopilot.py` caps ordinary preferred-model spend at a user-selected share, admits only non-more-expensive reviewed fallbacks, keeps consequential tasks behind the shared period admission cap, and permits one evidence-gated quality upgrade. The share is not ring-fenced. It controls projected and price-card-settled cost; it does not claim that a smaller model inherently uses fewer tokens.
+
+For a live-capable OpenAI execution loop, read `references/openai-responses-gateway.md`, then use `scripts/model_budget_gateway.py`. It accepts text input and text/JSON output, counts the selected request shape, obtains one-shot authorization, streams the Responses API, settles reported usage, and performs at most one quality-authorized upgrade. Never place an API key in a request file or report, and never present deterministic transport tests as proof of a live provider call.
 
 ## Capability lanes
 
@@ -155,11 +156,14 @@ Read `references/security-governance.md` before work involving public-fork workf
 
 ## Context-efficient verification
 
-Compact noisy logs without deleting the raw source:
+Save the raw source, then compact a bounded evidence view:
 
 ```bash
-some-test-command 2>&1 | \
-  python scripts/tool_output_compactor.py --max-lines 80
+mkdir -p .aipc
+some-test-command > .aipc/raw-test.log 2>&1
+python scripts/tool_output_compactor.py \
+  --input .aipc/raw-test.log \
+  --max-lines 80
 ```
 
 Reuse only exact-fingerprint, non-critical passing evidence with `scripts/evidence_cache.py`. Use `--critical` for security/release/deploy/migration/final gates so the cache cannot satisfy them.
@@ -181,6 +185,14 @@ Minimum evidence for meaningful AI/code changes:
 - explicit secret/data/model/tool boundaries;
 - realistic demo or sample input;
 - limitations near the capability they qualify.
+
+Run the bundled structural and deterministic Skill evals:
+
+```bash
+python scripts/run_skill_evals.py --format markdown
+```
+
+The runner resolves its bundled datasets and deterministic cases from the Skill root, independent of the caller's current directory. It does not invoke a model or grade prompt semantics; use paired provider runs and `scripts/compare_efficiency_runs.py` for measured Token, price-card cost, and latency effects. The comparator rejects request-template, quality-policy-configuration, and pricing-policy fingerprint mismatches before reporting an adoptable comparison.
 
 Run the transparent repository audit:
 

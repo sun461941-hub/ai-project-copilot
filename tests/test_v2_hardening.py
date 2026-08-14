@@ -111,6 +111,20 @@ class V2HardeningTests(unittest.TestCase):
         decline = [convergence.ThreadState("d1", "decline", "resolved", "", "", "")]
         self.assertFalse(convergence.analyze(decline).ready_for_rereview)
 
+    def test_review_convergence_requires_owner_for_resolved_escalation(self) -> None:
+        convergence = load_module("review_convergence")
+        missing_owner = [
+            convergence.ThreadState("e1", "escalate", "resolved", "maintainer decision recorded", "", "")
+        ]
+        report = convergence.analyze(missing_owner)
+        self.assertFalse(report.ready_for_rereview)
+        self.assertTrue(any("no human owner" in item for item in report.blockers))
+
+        assigned = [
+            convergence.ThreadState("e1", "escalate", "resolved", "maintainer decision recorded", "", "release-owner")
+        ]
+        self.assertTrue(convergence.analyze(assigned).ready_for_rereview)
+
     def test_supply_chain_detects_multiline_run_interpolation_and_confines_manifest(self) -> None:
         guard = load_module("supply_chain_guard")
         with tempfile.TemporaryDirectory() as temp:
@@ -197,6 +211,27 @@ class V2HardeningTests(unittest.TestCase):
             self.assertNotIn("privileged-trigger", codes)
             self.assertNotIn("write-all", codes)
             self.assertNotIn("mutable-action-ref", codes)
+
+    def test_supply_chain_hashes_both_skill_roots_and_warns_when_none_exist(self) -> None:
+        guard = load_module("supply_chain_guard")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = root / "both"
+            for rel in ("skills/ai-project-copilot", ".agents/skills/ai-project-copilot"):
+                skill = repo / rel
+                skill.mkdir(parents=True)
+                (skill / "SKILL.md").write_text("demo\n", encoding="utf-8")
+            report = guard.scan(repo)
+            self.assertEqual(2, report.integrity_files)
+            self.assertEqual([], report.warnings)
+            with self.assertRaises(ValueError):
+                guard.scan(repo, Path(".agents/skills/ai-project-copilot/MANIFEST.sha256"))
+
+            empty_repo = root / "empty"
+            empty_repo.mkdir()
+            empty_report = guard.scan(empty_repo)
+            self.assertEqual(0, empty_report.integrity_files)
+            self.assertTrue(any("no hashable skill files" in item for item in empty_report.warnings))
 
     def test_release_core_api_treats_blank_messages_as_empty_delta(self) -> None:
         release = load_module("release_intel")

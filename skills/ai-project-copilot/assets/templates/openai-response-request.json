@@ -1,0 +1,18 @@
+{
+  "model": "REPLACE_WITH_REVIEWED_OPENAI_MODEL_ID",
+  "instructions": "Return a concise answer grounded only in the supplied input.",
+  "input": [
+    {
+      "role": "user",
+      "content": "Replace this with the frozen task input."
+    }
+  ],
+  "reasoning": {
+    "effort": "low"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 512,
+  "store": false
+}

@@ -2,7 +2,7 @@
   <img src="docs/hero.svg" alt="AI Project Copilot — evidence-first AI product and maintainer intelligence" width="100%" />
 </p>
 
-<h1 align="center">AI Project Copilot 2.0</h1>
+<h1 align="center">AI Project Copilot 2.1</h1>
 
 <p align="center">
   A portable Agent Skill for <b>AI product engineering + open-source maintainer intelligence</b>.<br />
@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Agent Skills compatible" src="https://img.shields.io/badge/Agent%20Skills-compatible-6D5EF9" />
-  <img alt="v2" src="https://img.shields.io/badge/version-2.0.0-7C3AED" />
+  <img alt="v2.1" src="https://img.shields.io/badge/version-2.1.0-7C3AED" />
   <img alt="Blueprints" src="https://img.shields.io/badge/showcase%20blueprints-24-21B8F6" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E" /></a>
@@ -26,7 +26,7 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-> **v2 is no longer only a “make my AI project look good” workflow.** It is a repository-level intelligence layer: context discovery, product architecture, issue triage, PR risk, release intelligence, security/supply chain, quality/evals, contributor workflows, and showcase evidence — with human authority preserved for consequential writes.
+> **v2.1 adds an executable OpenAI budget gateway and deterministic eval runner to the repository workflow.** It still preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
 
 ## The v2 capability lanes
 
@@ -39,7 +39,7 @@
 | **Review** | prioritizes PR/diff risk and verifies fix/decline/escalate convergence | `change_risk.py`, `review_convergence.py` |
 | **Release** | recommends SemVer, groups release notes, flags migration blockers | `release_intel.py` |
 | **Secure** | checks Actions, MCP config, permissions, action/package refs, and skill integrity | `supply_chain_guard.py`, `mcp_config_audit.py` |
-| **Quality** | creates requirement-linked tests/evals and measured improvement loops | `evals/evals.json` + quality playbook |
+| **Quality** | validates eval datasets, runs deterministic cases, and supports measured improvement loops | `run_skill_evals.py`, `evals/evals.json` + quality playbook |
 | **Showcase** | turns evidence into README/demo/release clarity | demo + shipping references |
 
 ## AIPC Context Accelerator
@@ -75,11 +75,14 @@ python skills/ai-project-copilot/scripts/context_accelerator.py \
   --format markdown
 ```
 
-For noisy tools, preserve the raw log while giving the agent a small evidence view:
+For noisy tools, save the raw log before giving the agent a small evidence view:
 
 ```bash
-pytest -v 2>&1 | \
-  python skills/ai-project-copilot/scripts/tool_output_compactor.py --max-lines 80
+mkdir -p .aipc
+pytest -v > .aipc/raw-test.log 2>&1
+python skills/ai-project-copilot/scripts/tool_output_compactor.py \
+  --input .aipc/raw-test.log \
+  --max-lines 80
 ```
 
 `evidence_cache.py` can reuse only **passing, non-critical** evidence when the command and declared input-file content hashes match exactly. Security, release, deploy, migration, permissions, and final integration gates always bypass the cache. `.aipc/` cache state is gitignored.
@@ -122,6 +125,36 @@ usage, usage overruns, request-payload binding, provider-response deduplication,
 renewable leases, and one quality-gated upward retry. A fallback is never chosen
 when its projected request cost is higher than the requested model's.
 
+v2.1 also includes `model_budget_gateway.py`, a live-capable OpenAI Responses bridge.
+It counts the exact input shape for every reviewed ladder model in parallel,
+atomically binds the selected-model request bytes, streams the response, renews
+the lease, settles provider-reported usage, records TTFT/E2E timing, runs an optional
+deterministic quality command, and executes at most one budget-checked upgrade.
+
+```bash
+read -rsp "OpenAI API key: " OPENAI_API_KEY && export OPENAI_API_KEY
+printf '\n'
+cp skills/ai-project-copilot/assets/templates/openai-response-request.json request.json
+
+python skills/ai-project-copilot/scripts/model_budget_gateway.py \
+  --db .aipc/model-budget.sqlite3 \
+  --user opaque-trusted-user \
+  --request-id task-001-attempt-1 \
+  --logical-request-id task-001 \
+  --request request.json \
+  --task-class routine \
+  --format json
+```
+
+Configure the ledger and replace the request model/price card first. The key is
+environment-only and is not written to the ledger or quality subprocess. This
+v2.1 executor accepts text input and text/JSON output only: image, audio, file,
+prompt-template, tool, and background requests fail closed until those
+lifecycles and variable charges can be reconciled. Deterministic transports
+exercise the protocol in CI; only a successful run with your own key is evidence
+that the live provider path worked in your environment. See
+[`openai-responses-gateway.md`](skills/ai-project-copilot/references/openai-responses-gateway.md).
+
 Run the network-free proof scenario:
 
 ```bash
@@ -138,6 +171,27 @@ tokens, so Token savings remain unknown until the same real tasks are measured
 before and after. See
 [`references/model-budget-autopilot.md`](skills/ai-project-copilot/references/model-budget-autopilot.md)
 for integration, pricing, lifecycle, and trust boundaries.
+
+After paired baseline/candidate runs, calculate the measured aggregate effect—while
+keeping failed and retried attempts in the totals:
+
+```bash
+python skills/ai-project-copilot/scripts/compare_efficiency_runs.py \
+  --baseline baseline.jsonl \
+  --candidate candidate.jsonl \
+  --require-improvement \
+  --format markdown
+```
+
+This reports measured Token saving, price-card cost saving, TTFT, end-to-end
+latency reduction, and speedup. It rejects mismatched request-template,
+quality-policy configuration, or pricing-policy fingerprints. The pricing
+fingerprint binds the reviewed model ladder and price cards, protected-task
+policy, served-model map, fixed extra cost, and default service tier; the request
+fingerprint also binds the requested model and task class. These fingerprints
+still cannot prove that an external
+evaluator executable was unchanged or reconcile a provider invoice. A single run reports
+`token_savings=null` because it has no task-aligned counterfactual.
 
 ## What was added after benchmarking mainstream Agent Skills
 
@@ -303,7 +357,18 @@ The Skill includes a portable `skills/ai-project-copilot/evals/evals.json` with 
 - review convergence state;
 - near-miss prompts that should not trigger the full Skill.
 
-The quality loop is simple: **derive requirements → baseline → evidence-sized change → repeat the same checks → keep/revert based on results**.
+Run the bundled structural and deterministic cases:
+
+```bash
+python skills/ai-project-copilot/scripts/run_skill_evals.py \
+  --format markdown
+```
+
+The runner validates 25 static eval records and 20 trigger fixtures, then runs
+three Skill-bundled deterministic command cases without a shell. It explicitly
+reports `semantic_grading_performed=false`: prompt expectations are not model
+outputs. The quality loop remains **derive requirements → baseline →
+evidence-sized change → repeat the same checks → keep/revert based on results**.
 
 ## Optional multi-agent orchestration
 
@@ -378,12 +443,17 @@ skills/ai-project-copilot/
 │   ├── codebase-context.md
 │   ├── pr-review-loop.md
 │   ├── release-intelligence.md
+│   ├── openai-responses-gateway.md
 │   ├── security-governance.md
 │   ├── quality-orchestration.md
 │   └── ...existing product references
 └── scripts/
     ├── token_governor.py
     ├── context_accelerator.py
+    ├── model_budget_autopilot.py
+    ├── model_budget_gateway.py
+    ├── compare_efficiency_runs.py
+    ├── run_skill_evals.py
     ├── tool_output_compactor.py
     ├── evidence_cache.py
     ├── workflow_router.py
@@ -411,6 +481,8 @@ A realistic 60-second maintainer demo can be run entirely read-only: map an unfa
 - Semantic code review still requires reading the actual implementation and tests; deterministic helpers cannot replace domain expertise.
 - Connected GitHub/MCP actions depend on the client and permissions available at runtime; read-only analysis remains the portable baseline.
 - Character/path reduction and local runtime benchmarks are deterministic proxies; they must not be reported as exact Codex token savings or backend speedups.
+- The live-capable gateway covers text-input/text-or-JSON-output OpenAI Responses requests and price-card settlement, not multimodal input, tools, background jobs, provider invoice reconciliation, or an absolute spend guarantee.
+- Real Token/cost/latency percentages require aligned baseline and candidate tasks with the same configured success gate and reviewed price cards; the comparator checks requested model/task class, request template, quality-policy configuration, pricing/protection policy, and served-model mapping, not external evaluator binaries or provider invoices. The project does not publish a universal savings percentage.
 
 ## Design principles
 

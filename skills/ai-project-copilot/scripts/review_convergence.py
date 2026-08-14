@@ -84,6 +84,8 @@ def analyze(threads: list[ThreadState]) -> ConvergenceReport:
                 blockers.append(f"{thread.id}: `{thread.decision}` decision requires recorded evidence/rationale")
             else:
                 warnings.append(f"{thread.id}: decision has no recorded evidence/rationale")
+        if thread.decision == "escalate" and not thread.owner:
+            blockers.append(f"{thread.id}: escalation has no human owner/handoff")
         if thread.status == "resolved":
             resolved += 1
             if thread.decision == "fix" and not thread.reply_sha:
@@ -96,8 +98,6 @@ def analyze(threads: list[ThreadState]) -> ConvergenceReport:
         elif thread.decision == "escalate":
             if thread.owner:
                 handoffs.append(f"{thread.id} → {thread.owner}")
-            else:
-                blockers.append(f"{thread.id}: escalation is open but has no human owner/handoff")
 
     ready = not blockers
     return ConvergenceReport(

@@ -26,7 +26,13 @@ MANIFEST_PRIORITY = (
 
 
 def _normalize_rel(value: str) -> str:
-    return value.replace("\\", "/").strip().lstrip("./")
+    normalized = value.replace("\\", "/").strip()
+    # Remove an explicit current-directory prefix without treating ``./`` as
+    # a bag of characters.  ``str.lstrip("./")`` corrupts legitimate hidden
+    # paths such as ``.github/workflows/ci.yml`` and ``.env``.
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
 
 
 def _within(path: Path, root: Path) -> bool:

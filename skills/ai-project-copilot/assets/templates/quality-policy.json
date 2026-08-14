@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "{python}",
+    "-c",
+    "import json, pathlib, sys; response = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')); output = pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'); raise SystemExit(0 if response.get('status') == 'completed' and output.strip() else 1)",
+    "{response_json}",
+    "{output_text}"
+  ],
+  "timeout_seconds": 30,
+  "working_directory": "."
+}

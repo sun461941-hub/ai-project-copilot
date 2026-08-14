@@ -290,6 +290,35 @@ class ContextAcceleratorTests(unittest.TestCase):
             self.assertIn("src/new file.py", packet.files_to_read)
             self.assertNotIn("src/old.py", packet.files_to_read)
 
+    def test_git_status_preserves_dot_prefixed_hidden_paths(self) -> None:
+        import shutil
+        import subprocess
+        if shutil.which("git") is None:
+            self.skipTest("git unavailable")
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+            (repo / ".github" / "workflows").mkdir(parents=True)
+            workflow = repo / ".github" / "workflows" / "ci.yml"
+            environment = repo / ".env.example"
+            workflow.write_text("name: CI\n", encoding="utf-8")
+            environment.write_text("MODE=safe\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(["git", "commit", "-qm", "init"], cwd=repo, check=True)
+            workflow.write_text("name: changed\n", encoding="utf-8")
+            environment.write_text("MODE=changed\n", encoding="utf-8")
+
+            changed = self.accel._git_changed_files(repo)
+            self.assertIn(".github/workflows/ci.yml", changed)
+            self.assertIn(".env.example", changed)
+            self.assertNotIn("github/workflows/ci.yml", changed)
+            packet = self.accel.compile_context(repo, "small edit", [], use_git_status=True)
+            self.assertEqual("DEEP", packet.mode)
+            self.assertIn(".github/workflows/ci.yml", packet.changed_files)
+            self.assertIn(".env.example", packet.changed_files)
+
     def test_this_repository_has_no_supply_chain_guard_findings(self) -> None:
         guard = load_script("supply_chain_guard")
         report = guard.scan(ROOT)

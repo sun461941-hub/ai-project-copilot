@@ -83,6 +83,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         projected_cached: int | None = None,
         projected_cache_write: int | None = None,
         projected_extra_cost: int = 0,
+        expected_config_version: int | None = None,
         now: dt.datetime | None = None,
     ):
         payload_hash = payload_hash or hashlib.sha256(
@@ -96,6 +97,7 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
             projected_extra_cost_nano_usd=projected_extra_cost,
             task_class=task_class, logical_request_id=logical,
             parent_request_id=parent, reservation_ttl_seconds=ttl,
+            expected_config_version=expected_config_version,
             now=now or self.now,
         )
 
@@ -147,6 +149,28 @@ class ModelBudgetAutopilotTests(unittest.TestCase):
         config = self.configure()
         self.assertEqual(400, config.preferred_cap_nano_usd)
         self.assertEqual(100, config.startup_allowance_nano_usd)
+
+    def test_get_config_and_projection_version_precondition(self) -> None:
+        configured = self.configure()
+        loaded = self.mod.get_config(self.db, self.user, now=self.now)
+        self.assertEqual(configured, loaded)
+        allowed = self.route(
+            "version-one", "quality", 1,
+            expected_config_version=configured.config_version,
+        )
+        self.assertTrue(allowed.execution_authorized)
+        self.mod.release_reservation(
+            self.db, self.user, "version-one", now=self.now
+        )
+        reconfigured = self.configure(budget=2_000)
+        self.assertGreater(reconfigured.config_version, configured.config_version)
+        with self.assertRaisesRegex(ValueError, "changed after request projection"):
+            self.route(
+                "stale-projection", "quality", 1,
+                expected_config_version=configured.config_version,
+            )
+        status = self.mod.get_status(self.db, self.user, now=self.now)
+        self.assertEqual(0, status.reserved_nano_usd)
 
     def test_decimal_price_parser_is_exact(self) -> None:
         card = self.mod._parse_price_spec("gpt:5.00:0.50:6.25:30.00")

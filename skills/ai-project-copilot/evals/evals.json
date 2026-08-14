@@ -1,6 +1,6 @@
 {
   "skill_name": "ai-project-copilot",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "evals": [
     {
       "id": 1,
@@ -215,7 +215,7 @@
       "expectations": [
         "No fake token claim",
         "Explains proxy limitation",
-        "Requests real usage telemetry"
+        "Requests provider-reported usage telemetry"
       ]
     },
     {
@@ -227,6 +227,28 @@
         "Clarifies that the preferred share is not ring-fenced",
         "Persists allow, downgrade, protected, upgrade, and block decisions",
         "Counts failed fallback usage before reporting the final model"
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "Do not just return a suggested model. Actually execute our OpenAI Responses request through the budget policy, stream it, settle provider-reported usage, run a trusted test command, and allow only one quality retry.",
+      "expected_output": "Uses the live text-only OpenAI gateway: exact input-token counting across the reviewed ladder, selected-payload binding, one-shot execution authorization, streaming, lease renewal, terminal usage settlement, secret-isolated deterministic quality command, and at most one budget-checked upgrade.",
+      "expectations": [
+        "Uses the live Responses gateway rather than the offline simulator",
+        "Does not expose or persist the API key",
+        "No automatic generation retry after an uncertain provider failure",
+        "Reports selected and served model plus provider-reported usage and latency"
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "What percentage of Tokens and time did the new budget routing actually save? Give me a release claim based on the same real tasks, not the synthetic path-character benchmark.",
+      "expected_output": "Runs an aligned baseline/candidate comparison with the same logical tasks and configured success gate, includes failures and retries, and separately reports Token, price-card cost, TTFT, end-to-end reduction, speedup, and any recorded success regression without inventing a universal percentage.",
+      "expectations": [
+        "Uses paired aligned provider-run telemetry",
+        "Includes failed and retried attempts",
+        "Keeps the configured success gate separate from efficiency",
+        "Allows negative savings and rejects universal claims"
       ]
     }
   ]

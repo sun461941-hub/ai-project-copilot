@@ -26,12 +26,17 @@ class GuardReport:
     workflow_files: int
     integrity_files: int
     manifest_written: str | None
+    warnings: list[str]
 
 
 SHA_REF = re.compile(r"^[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?$")
 USES_RE = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)")
 RUN_RE = re.compile(r"^(?P<indent>\s*)-?\s*run:\s*(?P<body>.*)$", flags=re.IGNORECASE)
 UNTRUSTED_RUN_RE = re.compile(r"\$\{\{\s*(?:github\.event(?:\.|\[)|github\.head_ref\b)", flags=re.IGNORECASE)
+SKILL_INSTALL_PATHS = (
+    "skills/ai-project-copilot",
+    ".agents/skills/ai-project-copilot",
+)
 
 
 def _structural_line_items(lines: list[str]) -> list[tuple[int, str]]:
@@ -155,10 +160,17 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
     for path in workflow_paths:
         findings.extend(_workflow_findings(path, path.relative_to(repo).as_posix()))
 
-    skill_dir = repo / "skills" / "ai-project-copilot"
-    hashes = _hash_files(skill_dir)
-    if skill_dir.exists() and not hashes:
-        findings.append(Finding("medium", "empty-skill-manifest", "skills/ai-project-copilot", "skill directory exists but no regular files were hashable"))
+    skill_dirs = [(rel, repo / rel) for rel in SKILL_INSTALL_PATHS]
+    hashes: list[tuple[str, str]] = []
+    warnings: list[str] = []
+    for rel, skill_dir in skill_dirs:
+        local_hashes = _hash_files(skill_dir)
+        hashes.extend((f"{rel}/{path}", digest) for path, digest in local_hashes)
+        if skill_dir.exists() and not local_hashes:
+            findings.append(Finding("medium", "empty-skill-manifest", rel, "skill directory exists but no regular files were hashable"))
+    if not hashes:
+        roots = ", ".join(f"`{path}`" for path in SKILL_INSTALL_PATHS)
+        warnings.append(f"no hashable skill files detected under supported installation roots: {roots}")
 
     manifest_written: str | None = None
     if manifest is not None:
@@ -172,11 +184,11 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
             target.relative_to(repo)
         except ValueError as exc:
             raise ValueError("integrity manifest must remain inside the repository") from exc
-        if skill_dir.exists():
+        for _, skill_dir in skill_dirs:
             try:
                 target.relative_to(skill_dir.resolve())
             except ValueError:
-                pass
+                continue
             else:
                 raise ValueError("integrity manifest must be outside the hashed skill directory")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -186,7 +198,7 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
 
     penalty = {"low": 4, "medium": 10, "high": 24, "critical": 40}
     score = max(0, 100 - sum(penalty.get(item.severity, 8) for item in findings))
-    return GuardReport(score, findings, len(workflow_paths), len(hashes), manifest_written)
+    return GuardReport(score, findings, len(workflow_paths), len(hashes), manifest_written, warnings)
 
 
 def markdown(report: GuardReport) -> str:
@@ -204,6 +216,9 @@ def markdown(report: GuardReport) -> str:
             lines.append(f"- **{item.severity.upper()}** `{item.code}` in `{item.path}` — {item.message}")
     else:
         lines.append("- No heuristic findings detected")
+    if report.warnings:
+        lines.extend(["", "## Warnings"])
+        lines.extend(f"- {item}" for item in report.warnings)
     lines.extend(["", "> This is a focused heuristic review, not a complete security audit. Confirm findings against the workflow's actual trust model.", ""])
     return "\n".join(lines)
 

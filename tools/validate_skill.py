@@ -15,6 +15,14 @@ NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 BRAND_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 REFERENCE_RE = re.compile(r"(?<![A-Za-z0-9_.-])((?:references|scripts|assets)/[A-Za-z0-9_.@/+\-]+)")
 TEXT_SUFFIXES = {".md", ".txt", ".py", ".json", ".yaml", ".yml", ".svg"}
+RUNTIME_DATABASE_SUFFIXES = (
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    "-journal",
+    "-shm",
+    "-wal",
+)
 FORBIDDEN_SKILL_DOCS = {"readme.md", "installation_guide.md", "quick_reference.md", "changelog.md"}
 REQUIRED_BLUEPRINT_FIELDS = {"id", "name", "category", "pitch", "wow", "mvp", "modules", "tags", "complexity"}
 
@@ -123,6 +131,9 @@ def validate(skill_dir: Path) -> list[str]:
             continue
         if path.is_symlink():
             errors.append(f"Symlink is not allowed in the distributable skill: {relative}")
+            continue
+        if relative.name.casefold().endswith(RUNTIME_DATABASE_SUFFIXES):
+            # SQLite ledgers and sidecars are local runtime state, not assets.
             continue
         if path.is_dir():
             continue

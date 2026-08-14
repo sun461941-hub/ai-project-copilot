@@ -15,6 +15,14 @@ from validate_skill import validate
 
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
 SKIP_NAMES = {"__pycache__", ".DS_Store"}
+RUNTIME_DATABASE_SUFFIXES = (
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    "-journal",
+    "-shm",
+    "-wal",
+)
 
 
 def within(child: Path, parent: Path) -> bool:
@@ -35,6 +43,9 @@ def collect(skill_dir: Path) -> list[Path]:
         if path.is_symlink():
             raise ValueError(f"Symlink is not allowed: {relative}")
         if path.is_dir():
+            continue
+        if relative.name.casefold().endswith(RUNTIME_DATABASE_SUFFIXES):
+            # Local ledgers and SQLite sidecars are runtime state, never Skill assets.
             continue
         mode = path.lstat().st_mode
         if not stat.S_ISREG(mode):

@@ -2,7 +2,7 @@
   <img src="docs/hero.svg" alt="AI Project Copilot" width="100%" />
 </p>
 
-<h1 align="center">AI Project Copilot 2.0</h1>
+<h1 align="center">AI Project Copilot 2.1</h1>
 
 <p align="center">
   一个同时覆盖 <b>AI 产品工程 + 开源维护者智能</b> 的可移植 Agent Skill。<br />
@@ -17,7 +17,7 @@
   <a href="CHANGELOG.md">更新日志</a>
 </p>
 
-> **v2 已经不只是“把 AI 项目包装得更好看”。** 它现在是一层仓库级 Maintainer Intelligence：代码库理解、任务路由、Issue、PR、测试、Release、安全供应链、贡献者流程和 GitHub 展示全部打通，同时保留人工最终决定权。
+> **v2.1 增加了可执行的 OpenAI 模型预算网关和确定性评测器。** 启发式报告仍不会冒充语义证明，发布、合并、权限等高后果操作继续由人决定。
 
 ## v2 九大能力通道
 
@@ -30,7 +30,7 @@
 | **Review** | PR/diff 风险、fix/decline/escalate、Review 收敛门禁 | `change_risk.py`、`review_convergence.py` |
 | **Release** | SemVer、更新日志、破坏性变更与发布阻塞项 | `release_intel.py` |
 | **Secure** | GitHub Actions、MCP 配置、权限、Action/包引用、供应链 | `supply_chain_guard.py`、`mcp_config_audit.py` |
-| **Quality** | 需求驱动测试、回归评测、质量迭代 | `evals/evals.json` + 质量流程 |
+| **Quality** | 校验评测数据、运行确定性案例、支持实测改进循环 | `run_skill_evals.py`、`evals/evals.json` + 质量流程 |
 | **Showcase** | README、Demo、Release 证据和开源展示 | 演示/发布参考 |
 
 ## AIPC Context Accelerator：少读、少绕、关键验证不打折
@@ -66,11 +66,14 @@ python skills/ai-project-copilot/scripts/context_accelerator.py \
   --format markdown
 ```
 
-测试输出太长时：
+测试输出太长时，先保留原始日志，再生成小型证据视图：
 
 ```bash
-pytest -v 2>&1 | \
-  python skills/ai-project-copilot/scripts/tool_output_compactor.py --max-lines 80
+mkdir -p .aipc
+pytest -v > .aipc/raw-test.log 2>&1
+python skills/ai-project-copilot/scripts/tool_output_compactor.py \
+  --input .aipc/raw-test.log \
+  --max-lines 80
 ```
 
 压缩结果保留失败/汇总附近的上下文、遗漏行数和原始标准化日志的 SHA-256；原始日志始终是最终证据来源。`evidence_cache.py` 只允许复用**通过且非关键**、并且“命令 + 声明输入文件内容哈希”完全一致的证据。安全、Release、部署、迁移、权限和最终集成门禁必须重跑。`.aipc/` 已加入 `.gitignore`。
@@ -101,6 +104,32 @@ pytest -v 2>&1 | \
 
 `model_budget_autopilot.py` 使用不可变 SQLite 路由决策和原子费用预留，处理冷启动、并发请求、防抖恢复线、安全/发布/迁移任务保护、迟到 usage、用量超出预估、请求内容绑定、提供商响应去重、可续期租约，以及最多一次由质量证据触发的向上重试。只有本次预计费用不高于请求模型时才会选择回退模型。
 
+v2.1 新增 `model_budget_gateway.py`，把这套控制面接到可实时调用的 OpenAI
+Responses：它并行精确计数审核梯队中每个模型的输入，在同一原子路由中绑定
+最终选中模型的请求字节，流式输出、续租、结算 Provider 报告的 usage，记录 TTFT/E2E，
+运行可选的确定性质量命令，并且最多只执行一次预算允许的升级。
+
+```bash
+read -rsp "OpenAI API key: " OPENAI_API_KEY && export OPENAI_API_KEY
+printf '\n'
+cp skills/ai-project-copilot/assets/templates/openai-response-request.json request.json
+
+python skills/ai-project-copilot/scripts/model_budget_gateway.py \
+  --db .aipc/model-budget.sqlite3 \
+  --user opaque-trusted-user \
+  --request-id task-001-attempt-1 \
+  --logical-request-id task-001 \
+  --request request.json \
+  --task-class routine \
+  --format json
+```
+
+请先配置账本，并把模板里的模型与价卡替换为你实际审核过的 OpenAI 模型。
+Key 只从环境变量读取，不进入账本、报告或质量子进程。v2.1 的执行器只接受文本输入并返回文本/JSON；
+图像、音频、文件、Prompt Template、Tools 和 Background 请求会 fail-closed，直到它们的执行循环、可变附加费用和租约生命周期能被正确对账。
+CI 里验证的是确定性传输与协议；只有用你自己的 Key 成功执行，才是当前环境中真实 Provider 路径已打通的证据。详见
+[`openai-responses-gateway.md`](skills/ai-project-copilot/references/openai-responses-gateway.md)。
+
 运行不联网的确定性证明场景：
 
 ```bash
@@ -109,6 +138,20 @@ python skills/ai-project-copilot/scripts/model_budget_autopilot.py \
 ```
 
 这个合成输出会列出第一次降级、一个刻意构造的 incomplete 响应、唯一一次获准升级，以及最终通过质量门禁的模型；它是离线控制流测试，不是真实模型调用。这个功能控制的是**费用分配**；低成本模型不保证使用更少 Token，因此在对同一批真实任务做前后对照之前，Token 节省仍应标记为未知。集成、价格、生命周期和信任边界见 [`references/model-budget-autopilot.md`](skills/ai-project-copilot/references/model-budget-autopilot.md)。
+
+同一批冻结任务分别跑完 baseline/candidate 后，再计算实测效果；失败和重试也会进入总数：
+
+```bash
+python skills/ai-project-copilot/scripts/compare_efficiency_runs.py \
+  --baseline baseline.jsonl \
+  --candidate candidate.jsonl \
+  --require-improvement \
+  --format markdown
+```
+
+报告会分别给出实测 Token 节省率、价卡成本节省率、TTFT、端到端延迟下降和
+加速倍数。它会拒绝请求模板、质量策略配置或定价策略指纹不一致的对照。请求指纹还绑定请求模型与任务类别；定价指纹绑定经审核的模型梯队与价卡、受保护任务策略、served-model 映射、固定额外费用和默认 Service Tier。这些指纹仍不能证明外部 evaluator 可执行文件未变，也不能对账 Provider 发票。
+单次请求仍保持 `token_savings=null`，因为它没有任务对齐的反事实。
 
 ## 对标主流 Skill 后加入了什么
 
@@ -137,7 +180,7 @@ python skills/ai-project-copilot/scripts/repo_context.py \
   --format markdown
 ```
 
-它会给出：语言、依赖清单、入口、测试、CI、文档、治理文件、当前任务最相关的文件，以及明显证据缺口。
+它会给出：语言、依赖清单文件名、入口候选、测试、CI、文档、治理文件、当前任务最相关的文件，以及明显证据缺口；它不会解析依赖图或源码语义。
 
 如果要把仓库准备成更适合 Codex / Copilot / 其他 Agent 协作的结构，可以先生成**不覆盖现有规则**的指令草稿：
 
@@ -263,6 +306,17 @@ v2 新增完整 Skill 级 `evals/evals.json`，覆盖：
 
 **提炼行为要求 → 跑基线 → 做一次可验证修改 → 重跑同一组检查 → 用证据决定保留或回滚。**
 
+运行 Skill 内置的结构校验和确定性案例：
+
+```bash
+python skills/ai-project-copilot/scripts/run_skill_evals.py \
+  --format markdown
+```
+
+它会校验 25 条静态 Eval、20 条触发样本，并以 `shell=False` 运行 Skill 内置的
+3 条确定性命令案例。报告明确写出 `semantic_grading_performed=false`：这些 Prompt
+expectation 不是模型实答，也没有被语义评分。
+
 ## 可选多 Agent 协作
 
 如果客户端支持子 Agent，可拆为：
@@ -329,6 +383,8 @@ python tools/package_skill.py skills/ai-project-copilot \
 - 语义代码审查仍然必须读取真实代码和测试，确定性脚本只能提供证据和门禁；
 - GitHub/MCP 写操作能否执行取决于客户端与权限，跨客户端的最低共同能力始终是只读分析。
 - 字符/路径压缩率和本地运行耗时只是确定性代理指标，不能冒充真实 Codex Token 节省或后端速度提升。
+- 可实时调用的网关只覆盖文本输入、文本/JSON 输出的 OpenAI Responses 和价卡结算，不覆盖多模态输入、Tools、后台任务、Provider 发票对账，也不是绝对费用上限。
+- 真实 Token/成本/延迟百分比必须来自同一配置成功门禁、经审核价卡下、任务对齐的 baseline/candidate；比较器校验请求模型/任务类别、请求模板、质量策略配置、定价/保护策略和 served-model 映射，不校验外部 evaluator 二进制，也不对账 Provider 发票。项目不宣称一个适用于所有任务的固定节省率。
 
 ## v2 核心原则
 

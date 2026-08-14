@@ -31,6 +31,11 @@ jobs:
       - name: Validate skill
         run: python tools/validate_skill.py skills/ai-project-copilot
 
+      - name: Run deterministic Skill evals
+        run: >-
+          python skills/ai-project-copilot/scripts/run_skill_evals.py
+          --format json
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 

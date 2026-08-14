@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "blueprint-ranking-prefers-android-local-video",
+      "argv": [
+        "{python}",
+        "scripts/rank_blueprints.py",
+        "--priorities",
+        "local-first,video,android,visual-demo",
+        "--constraints",
+        "privacy,mobile",
+        "--limit",
+        "1",
+        "--json"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 10,
+      "expect": {
+        "exit_code": 0,
+        "stderr_exact": "",
+        "stdout_json_subset": [
+          {
+            "id": "android-local-video-runtime"
+          }
+        ]
+      }
+    },
+    {
+      "id": "workflow-router-selects-release",
+      "argv": [
+        "{python}",
+        "scripts/workflow_router.py",
+        "--prompt",
+        "Prepare the next release with SemVer, a changelog, and release notes.",
+        "--format",
+        "json"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 10,
+      "expect": {
+        "exit_code": 0,
+        "stderr_exact": "",
+        "stdout_json_subset": [
+          {
+            "mode": "release"
+          }
+        ]
+      }
+    },
+    {
+      "id": "model-budget-simulation-keeps-both-attempts",
+      "argv": [
+        "{python}",
+        "scripts/model_budget_autopilot.py",
+        "simulate",
+        "--format",
+        "json"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 20,
+      "expect": {
+        "exit_code": 0,
+        "stderr_exact": "",
+        "stdout_json_subset": {
+          "scenario": "fallback-incomplete-single-upgrade",
+          "first_route": {
+            "action": "downgrade",
+            "selected_model": "balanced-model"
+          },
+          "second_route": {
+            "action": "quality-upgrade",
+            "selected_model": "quality-model"
+          },
+          "final_result": {
+            "final_status": "success",
+            "final_model": "quality-model",
+            "token_savings": null
+          }
+        }
+      }
+    }
+  ]
+}

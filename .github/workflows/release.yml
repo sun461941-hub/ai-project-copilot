@@ -26,6 +26,7 @@ jobs:
       - name: Validate and test
         run: |
           python tools/validate_skill.py skills/ai-project-copilot
+          python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
           python -m unittest discover -s tests -v
 
       - name: Build release archive

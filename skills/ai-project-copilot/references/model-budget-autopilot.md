@@ -8,6 +8,7 @@ part of a period budget and routes excess ordinary work through reviewed fallbac
 - [What it controls](#what-it-controls)
 - [Budget semantics](#budget-semantics)
 - [Configure](#configure)
+- [Live-capable OpenAI gateway](#live-capable-openai-gateway)
 - [Request lifecycle](#request-lifecycle)
 - [Protected work](#protected-work)
 - [Idempotency, leases, and recovery](#idempotency-leases-and-recovery)
@@ -30,10 +31,12 @@ It:
 - authorizes at most one upward retry after a failed fallback;
 - deduplicates provider response IDs and reports every attempt in the final result.
 
-It does **not** call a provider, authenticate users, classify trusted task risk,
-alter provider quotas, or guarantee fewer Tokens. A smaller model can use more
-Tokens or require a retry. Settled cost is actual reported usage priced through
-the stored price card; it is not a provider invoice reconciliation system.
+The control-plane script does **not** call a provider, authenticate users,
+classify trusted task risk, alter provider quotas, or guarantee fewer Tokens.
+A smaller model can use more Tokens or require a retry. Settled cost is actual
+reported usage priced through the stored price card; it is not a provider
+invoice reconciliation system. The separate live-capable OpenAI gateway described
+below supplies the trusted execution bridge.
 
 ## Budget semantics
 
@@ -97,15 +100,32 @@ only when its projected request cost is no greater than the requested model's.
 Treat equal-cost fallbacks as a configuration smell: they reduce preferred-model
 allocation, but do not produce an estimated cost saving.
 
+## Live-capable OpenAI gateway
+
+`scripts/model_budget_gateway.py` integrates the policy ledger with the OpenAI
+Responses input-token count and streaming generation endpoints. It counts the
+same request shape for every reviewed ladder model, builds and hashes the exact
+selected-model payload inside the routing transaction, renews the lease,
+settles terminal usage, runs an optional deterministic quality command, and
+executes at most one authorized upgrade.
+
+Read [`openai-responses-gateway.md`](openai-responses-gateway.md) before using
+that path. Its v2.1 scope accepts text input and text/JSON output only: multimodal
+input, prompt templates, tools, and background responses fail closed until their
+counting, execution, extra-charge, and lease lifecycles can be reconciled correctly.
+
 ## Request lifecycle
 
 Use a new `request-id` and provider response ID for every provider attempt. Use
 the same `logical-request-id` for a fallback and its one permitted upgrade.
 
-Build one final provider request object. Hash its canonical bytes and use that
-same object for the provider's input-Token count and generation calls. Include
-instructions, input/conversation state, tools, schemas, reasoning, and every
-other field that changes rendered input. Do not count a reduced surrogate.
+For a manual integration, the selected-model request bytes must be built and
+hashed after routing chooses a candidate, inside the same admission
+transaction. The public Python `request_payload_builder` callback supports that
+contract; the live-capable gateway is the reference implementation. Do not bind a
+requested-model body and then send a different downgraded body. Do not count a
+reduced surrogate that omits instructions, state, schemas, reasoning, or other
+input-rendering fields.
 
 ```bash
 python scripts/model_budget_autopilot.py route \
@@ -140,9 +160,11 @@ using one reservation for two provider calls. After a lost route response,
 explicitly release the unused reservation when safe and create a new request
 ID; a replay is an immutable receipt, not permission to execute. Also forward
 a provider idempotency key when supported as defense in depth.
-Feed the complete final provider response into settlement. It must
-include a unique response `id`, the exact selected `model`, explicit final
-`status`, usage, input details, and output/reasoning details where available:
+Feed the complete final provider response into settlement. The provider-neutral
+CLI requires a unique response `id`, the exact selected `model`, explicit final
+`status`, usage, input details, and output/reasoning details where available.
+The OpenAI gateway separately records a served snapshot/alias and binds it to
+the selected price-card key before settlement:
 
 ```bash
 python scripts/model_budget_autopilot.py settle \
@@ -254,7 +276,12 @@ Per-attempt savings use a same-Token price counterfactual. Logical-task savings
 compare the first attempt's requested-model counterfactual with every
 fallback/upgrade attempt, so a failed fallback can correctly show negative
 savings. Neither value proves realized savings. `token_savings` remains `null`
-without a task-aligned baseline.
+without a task-aligned baseline. Use `scripts/compare_efficiency_runs.py` on
+paired provider-run gateway records to calculate measured aggregate Token, cost,
+and latency effects without removing failed or retried attempts. Request-template,
+quality-policy-configuration, and pricing-policy fingerprints help detect invalid
+pairs, but they do not prove that external evaluator binaries were unchanged or
+reconcile provider invoices.
 
 ## Deterministic proof scenario
 

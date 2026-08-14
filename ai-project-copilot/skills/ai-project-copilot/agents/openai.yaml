@@ -1,9 +1,0 @@
-interface:
-  display_name: "AI Project Copilot"
-  short_description: "Context-efficient AI engineering and OSS maintainer intelligence"
-  icon_small: "./assets/icon-small.svg"
-  icon_large: "./assets/icon-large.svg"
-  brand_color: "#6D5EF9"
-  default_prompt: "Use $ai-project-copilot to choose the smallest safe FAST/BALANCED/DEEP budget, compile task-specific repository context, then improve and verify the product or maintainer workflow with deterministic evidence while preserving human authority for consequential writes."
-policy:
-  allow_implicit_invocation: true

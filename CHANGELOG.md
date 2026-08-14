@@ -4,9 +4,15 @@ All notable changes to AI Project Copilot are documented here.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-14
+
 ### Added
 
 - **Model Budget Autopilot**, a provider-neutral SQLite control plane for user-selected preferred-model cost allocation, cost-checked fallback routing, protected-task handling, payload-bound immutable decisions, concurrent reservations, provider-response deduplication, lease renewal, usage settlement, hysteresis, and one quality-gated upgrade;
+- **OpenAI Responses Budget Gateway**, a live-capable text-input/text-or-JSON-output bridge that counts every reviewed ladder model through the official input-token endpoint, atomically binds the selected request bytes, streams output, renews reservations, settles reported usage, records TTFT/E2E/provider request evidence, runs an optional bounded deterministic quality command, and performs at most one authorized upgrade;
+- paired `compare_efficiency_runs.py` reports for measured Token, price-card cost, TTFT, and end-to-end latency effects without dropping failed or retried attempts;
+- self-contained `run_skill_evals.py` validation for 25 static Skill eval records, 20 trigger fixtures, and three bundled deterministic command cases, with explicit disclosure that semantic grading is not performed;
+- request and quality-policy templates plus a live-gateway integration reference; the quality template reads the response/output but intentionally proves only completed, non-empty output until replaced with a task-specific evaluator;
 - deterministic offline `simulate` evidence that reports every fallback/upgrade attempt and the final quality-gated selected model without claiming unmeasured Token savings;
 - adversarial tests for cold start, exact budget boundaries, block/settlement idempotency, cache-write projection, reservation renewal/expiry, usage overruns, price snapshots, protected tasks, incomplete responses, duplicate provider IDs, database permissions, and concurrent routing.
 
@@ -23,6 +29,12 @@ All notable changes to AI Project Copilot are documented here.
 - schema-version and structural schema-contract checks reject incompatible ledgers before DDL and recheck after the writer lock to stop rolling-upgrade races; fact inserts explicitly abort on conflicts, and CLI nano-USD fields use decimal strings to preserve wire precision;
 - all money uses integer nano-USD and all failed/retried attempts stay in final cost and Token totals;
 - `token_savings` remains unknown without a task-aligned baseline, because changing models does not inherently reduce Token usage.
+- provider generation through the gateway has no automatic HTTP retry; malformed or usage-free terminal streams remain unsettled for manual reconciliation rather than being recorded as zero;
+- multimodal input, prompt templates, tools, and background responses fail closed in the v2.1 gateway until their counting, execution, variable-charge, and lease lifecycles can be reconciled;
+- paired-run comparison rejects request-template, quality-policy-configuration, and pricing-policy mismatches; the request fingerprint binds the requested model and task class, while pricing binds the reviewed ladder/price cards, protected-task policy, served-model map, fixed extra cost, and default service tier; no fingerprint claims to hash external evaluator binaries or reconcile provider invoices;
+- CI uses deterministic injected transports, so its passing gateway tests are not presented as proof of a live provider call;
+- `.github` and `.env` paths retain their leading dots, continuous Chinese authentication tasks select relevant source files, resolved escalations still require owners, vendor-prefixed API keys are audited, and Skill integrity scans both supported project installation locations;
+- the Skill frontmatter now follows the current official validator's allowed keys, while compatibility guidance remains in documentation.
 
 ## [2.0.0] - 2026-08-13
 

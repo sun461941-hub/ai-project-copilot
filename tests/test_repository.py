@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -156,6 +157,48 @@ class RepositoryTests(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertEqual(b"keep-me", output.read_bytes())
 
+    def test_validator_and_packager_ignore_runtime_database_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            copied_skill = Path(temp) / "ai-project-copilot"
+            shutil.copytree(SKILL, copied_skill, ignore=shutil.ignore_patterns("__pycache__"))
+            runtime = copied_skill / "runtime" / "usage.sqlite3"
+            runtime.parent.mkdir()
+            runtime.write_bytes(b"runtime-state")
+            output = Path(temp) / "skill.zip"
+            validation = run("tools/validate_skill.py", str(copied_skill))
+            self.assertIn("PASS", validation.stdout)
+            result = run(
+                "tools/package_skill.py",
+                str(copied_skill),
+                "--output", str(output),
+            )
+            self.assertEqual(0, result.returncode)
+            with zipfile.ZipFile(output) as archive:
+                self.assertFalse(
+                    any(name.endswith("usage.sqlite3") for name in archive.namelist())
+                )
+            runtime.unlink()
+            outside = Path(temp) / "outside.txt"
+            outside.write_text("not a database\n", encoding="utf-8")
+            try:
+                runtime.symlink_to(outside)
+            except OSError:
+                return
+            validation = run(
+                "tools/validate_skill.py", str(copied_skill), check=False
+            )
+            self.assertNotEqual(0, validation.returncode)
+            self.assertIn("Symlink is not allowed", validation.stderr)
+            linked_output = Path(temp) / "linked-skill.zip"
+            result = run(
+                "tools/package_skill.py",
+                str(copied_skill),
+                "--output", str(linked_output),
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertFalse(linked_output.exists())
+
     def test_packager_refuses_symlinked_skill_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             link = Path(temp) / "ai-project-copilot"
@@ -190,13 +233,24 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual([], data["secret_findings"])
 
     def test_trigger_eval_dataset_is_balanced(self) -> None:
-        with (ROOT / "evals" / "trigger-prompts.csv").open(newline="", encoding="utf-8") as handle:
+        bundled = SKILL / "evals" / "trigger-prompts.csv"
+        with bundled.open(newline="", encoding="utf-8") as handle:
             rows = list(csv.DictReader(handle))
         self.assertEqual(20, len(rows))
         labels = [row["should_trigger"].lower() for row in rows]
         self.assertEqual(10, labels.count("true"))
         self.assertEqual(10, labels.count("false"))
         self.assertEqual({"train", "validation"}, {row["split"] for row in rows})
+        self.assertEqual(
+            (ROOT / "evals" / "trigger-prompts.csv").read_bytes(),
+            bundled.read_bytes(),
+        )
+
+    def test_ci_and_release_run_the_bundled_deterministic_evals(self) -> None:
+        command = "skills/ai-project-copilot/scripts/run_skill_evals.py"
+        for relative in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
+            with self.subTest(workflow=relative):
+                self.assertIn(command, (ROOT / relative).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
