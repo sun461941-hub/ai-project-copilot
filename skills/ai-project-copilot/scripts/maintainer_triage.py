@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
+MAX_JSON_NESTING = 256
+
 SECURITY = (
     "security", "vulnerability", "vulnerable", "cve", "rce", "xss",
     "csrf", "secret", "credential", "token leak", "auth bypass",
@@ -43,7 +45,6 @@ STARTER = (
     "test coverage", "example",
 )
 
-
 @dataclass(frozen=True)
 class TriageResult:
     labels: list[str]
@@ -52,7 +53,6 @@ class TriageResult:
     confidence: float
     needs: list[str]
     reasons: list[str]
-
 
 def _term_matches(text: str, term: str) -> bool:
     haystack = text.casefold()
@@ -64,7 +64,6 @@ def _term_matches(text: str, term: str) -> bool:
     pattern = rf"(?<![a-z0-9_]){re.escape(needle)}(?![a-z0-9_])"
     return re.search(pattern, haystack) is not None
 
-
 def _contains(text: str, terms: Iterable[str]) -> list[str]:
     return [term for term in terms if _term_matches(text, term)]
 
@@ -73,12 +72,36 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"\b[\w'-]+\b", text, flags=re.UNICODE))
 
 
+def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+    """Bound parser depth without counting brackets that occur inside strings."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > maximum:
+                return True
+        elif character in "]}" and depth:
+            depth -= 1
+    return False
+
+
 def triage_issue(title: str, body: str) -> TriageResult:
     text = f"{title}\n{body}".strip()
     labels: list[str] = []
     reasons: list[str] = []
     needs: list[str] = []
-
     security_hits = _contains(text, SECURITY)
     bug_hits = _contains(text, BUG)
     docs_hits = _contains(text, DOCS)
@@ -90,7 +113,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
     if security_hits:
         labels.append("security")
         reasons.append(f"security signals: {', '.join(security_hits[:3])}")
-
     if bug_hits:
         labels.append("bug")
         reasons.append(f"bug signals: {', '.join(bug_hits[:3])}")
@@ -102,7 +124,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
     if feature_hits and "bug" not in labels and "security" not in labels:
         labels.append("enhancement")
         reasons.append(f"feature signals: {', '.join(feature_hits[:3])}")
-
     if "bug" in labels and not repro_hits:
         labels.append("needs-reproduction")
         needs.append("Add deterministic reproduction steps, logs, or a minimal example.")
@@ -113,7 +134,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
 
     if _word_count(body) < 12:
         needs.append("Add expected behavior, actual behavior, and environment details.")
-
     if "security" in labels or high_hits:
         priority = "high"
         labels.append("priority:high")
@@ -123,7 +143,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
         priority = "normal"
     else:
         priority = "normal"
-
     if security_hits:
         difficulty = "advanced"
     elif docs_hits and not bug_hits and not feature_hits:
@@ -137,7 +156,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
 
     if difficulty == "starter" and "security" not in labels:
         labels.append("good first issue")
-
     # Confidence is deliberately conservative and transparent.
     signal_groups = sum(bool(x) for x in (security_hits, bug_hits, docs_hits, feature_hits))
     confidence = min(0.95, 0.45 + 0.12 * signal_groups + (0.08 if repro_hits else 0))
@@ -145,7 +163,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
         labels.append("needs-triage")
         confidence = min(confidence, 0.55)
         reasons.append("no strong deterministic category signal")
-
     order = {
         "security": 0,
         "bug": 1,
@@ -157,7 +174,6 @@ def triage_issue(title: str, body: str) -> TriageResult:
         "needs-triage": 7,
     }
     labels = sorted(dict.fromkeys(labels), key=lambda x: (order.get(x, 99), x))
-
     return TriageResult(
         labels=labels,
         priority=priority,
@@ -169,11 +185,16 @@ def triage_issue(title: str, body: str) -> TriageResult:
 
 
 def _load_issue(path: Path) -> tuple[str, str]:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    if _json_nesting_exceeds(text):
+        raise ValueError("issue JSON nesting exceeds the safe parser depth")
+    try:
+        data = json.loads(text)
+    except RecursionError as exc:
+        raise ValueError("issue JSON nesting exceeds the safe parser depth") from exc
     if not isinstance(data, dict):
         raise ValueError("issue JSON must be an object")
     return str(data.get("title", "")), str(data.get("body", ""))
-
 
 def _markdown(result: TriageResult) -> str:
     labels = ", ".join(f"`{label}`" for label in result.labels)
@@ -199,7 +220,6 @@ def _markdown(result: TriageResult) -> str:
     ])
     return "\n".join(lines)
 
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
@@ -208,11 +228,13 @@ def main() -> int:
     parser.add_argument("--body", default="", help="Issue body when --title is used")
     parser.add_argument("--format", choices=("json", "markdown"), default="json")
     args = parser.parse_args()
-
-    if args.issue_json:
-        title, body = _load_issue(args.issue_json)
-    else:
-        title, body = args.title or "", args.body
+    try:
+        if args.issue_json:
+            title, body = _load_issue(args.issue_json)
+        else:
+            title, body = args.title or "", args.body
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
+        parser.error(f"could not read issue JSON: {exc}")
 
     result = triage_issue(title, body)
     if args.format == "json":

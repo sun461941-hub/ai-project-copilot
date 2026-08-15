@@ -7,7 +7,6 @@ deterministic, bundled Skill-local Python commands and machine-checkable outcome
 """
 
 from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -22,6 +21,7 @@ from typing import Any
 REPORT_SCHEMA_VERSION = 1
 COMMAND_SCHEMA_VERSION = 1
 MAX_CAPTURE_CHARS = 65_536
+MAX_JSON_NESTING = 256
 REQUIRED_TRIGGER_COLUMNS = {
     "id",
     "split",
@@ -37,7 +37,6 @@ EXPECTATION_KEYS = {
     "stderr_contains",
     "stdout_json_subset",
 }
-
 
 @dataclass(frozen=True)
 class Issue:
@@ -63,9 +62,33 @@ class CommandCase:
     timeout_seconds: float
     expect: dict[str, Any]
 
-
 def _nonempty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+    """Bound parser depth without counting brackets that occur inside strings."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > maximum:
+                return True
+        elif character in "]}" and depth:
+            depth -= 1
+    return False
 
 
 def _safe_repo_path(repo: Path, raw: str, *, must_be: str) -> Path:
@@ -89,14 +112,24 @@ def _safe_repo_path(repo: Path, raw: str, *, must_be: str) -> Path:
         raise ValueError("path must identify a directory")
     return candidate
 
-
 def _load_json(path: Path, dataset: str, label: str, issues: list[Issue]) -> Any | None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
     except OSError:
         issues.append(Issue(dataset, "read_error", label, "could not read file"))
+        return None
     except UnicodeError:
         issues.append(Issue(dataset, "invalid_encoding", label, "file must be valid UTF-8"))
+        return None
+
+    if _json_nesting_exceeds(text):
+        issues.append(
+            Issue(dataset, "invalid_json", label, "JSON nesting exceeds the safe parser depth")
+        )
+        return None
+
+    try:
+        return json.loads(text)
     except json.JSONDecodeError as exc:
         issues.append(
             Issue(
@@ -107,11 +140,11 @@ def _load_json(path: Path, dataset: str, label: str, issues: list[Issue]) -> Any
             )
         )
     except RecursionError:
+        # Defense in depth for runtimes with a lower parser recursion ceiling.
         issues.append(
             Issue(dataset, "invalid_json", label, "JSON nesting exceeds the safe parser depth")
         )
     return None
-
 
 def _validate_static_evals(data: Any, issues: list[Issue]) -> tuple[int, list[Any]]:
     dataset = "skill_evals"
@@ -135,7 +168,6 @@ def _validate_static_evals(data: Any, issues: list[Issue]) -> tuple[int, list[An
     if not isinstance(evals, list) or not evals:
         issues.append(Issue(dataset, "invalid_evals", "$.evals", "must be a non-empty array"))
         return 0, embedded
-
     seen: set[str] = set()
     for index, item in enumerate(evals):
         location = f"$.evals[{index}]"
@@ -166,7 +198,6 @@ def _validate_static_evals(data: Any, issues: list[Issue]) -> tuple[int, list[An
             )
     return len(evals), embedded
 
-
 def _validate_triggers(path: Path, label: str, issues: list[Issue]) -> tuple[int, int, int]:
     dataset = "trigger_dataset"
     try:
@@ -185,7 +216,6 @@ def _validate_triggers(path: Path, label: str, issues: list[Issue]) -> tuple[int
     except (OSError, csv.Error):
         issues.append(Issue(dataset, "read_error", label, "could not read CSV dataset"))
         return 0, 0, 0
-
     if not rows:
         issues.append(Issue(dataset, "empty_dataset", label, "must contain at least one row"))
     seen: set[str] = set()
@@ -219,10 +249,8 @@ def _validate_triggers(path: Path, label: str, issues: list[Issue]) -> tuple[int
             )
     return len(rows), positives, negatives
 
-
 def _validate_string_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
-
 
 def _parse_command_cases(raw_cases: list[Any], issues: list[Issue]) -> list[CommandCase]:
     dataset = "command_cases"
@@ -247,7 +275,6 @@ def _parse_command_cases(raw_cases: list[Any], issues: list[Issue]) -> list[Comm
                 )
                 valid = False
             seen.add(normalized_id)
-
         argv = item.get("argv")
         if (
             not isinstance(argv, list)
@@ -264,13 +291,11 @@ def _parse_command_cases(raw_cases: list[Any], issues: list[Issue]) -> list[Comm
                 Issue(dataset, "unsafe_executable", f"{location}.argv[0]", "only the {python} executable token is allowed")
             )
             valid = False
-
         cwd = item.get("cwd", ".")
         if not _nonempty_string(cwd):
             issues.append(Issue(dataset, "invalid_cwd", f"{location}.cwd", "must be a relative directory"))
             valid = False
             cwd = "."
-
         timeout = item.get("timeout_seconds", 10)
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0.05 <= float(timeout) <= 300:
             issues.append(
@@ -278,7 +303,6 @@ def _parse_command_cases(raw_cases: list[Any], issues: list[Issue]) -> list[Comm
             )
             valid = False
             timeout = 10
-
         expect = item.get("expect")
         if not isinstance(expect, dict):
             issues.append(Issue(dataset, "invalid_expect", f"{location}.expect", "must be an object"))
@@ -305,13 +329,11 @@ def _parse_command_cases(raw_cases: list[Any], issues: list[Issue]) -> list[Comm
                 if key in expect and not _validate_string_list(expect[key]):
                     issues.append(Issue(dataset, "invalid_expectation", f"{location}.expect.{key}", "must be a string array"))
                     valid = False
-
         if valid:
             parsed.append(
                 CommandCase(normalized_id, tuple(argv), str(cwd), float(timeout), dict(expect))
             )
     return sorted(parsed, key=lambda case: case.case_id)
-
 
 def _load_command_file(path: Path, label: str, issues: list[Issue]) -> list[Any]:
     data = _load_json(path, "command_cases", label, issues)
@@ -332,7 +354,6 @@ def _load_command_file(path: Path, label: str, issues: list[Issue]) -> list[Any]
         return []
     return cases
 
-
 def _normalize_output(value: str | bytes | None) -> str:
     if value is None:
         return ""
@@ -345,7 +366,6 @@ def _clip(value: str) -> str:
     if len(value) <= MAX_CAPTURE_CHARS:
         return value
     return value[:MAX_CAPTURE_CHARS] + "\n<output truncated>\n"
-
 
 def _json_subset(expected: Any, actual: Any, path: str = "$") -> str | None:
     if isinstance(expected, dict):
@@ -372,7 +392,6 @@ def _json_subset(expected: Any, actual: Any, path: str = "$") -> str | None:
         return f"{path} expected {expected!r}, got {actual!r}"
     return None
 
-
 def _evaluate_expectations(case: CommandCase, returncode: int, stdout: str, stderr: str) -> list[str]:
     failures: list[str] = []
     expected = case.expect
@@ -387,16 +406,18 @@ def _evaluate_expectations(case: CommandCase, returncode: int, stdout: str, stde
             if needle not in stream:
                 failures.append(f"{stream_name} missing required text: {needle!r}")
     if "stdout_json_subset" in expected:
-        try:
-            actual_json = json.loads(stdout)
-        except json.JSONDecodeError:
-            failures.append("stdout is not valid JSON")
+        if _json_nesting_exceeds(stdout):
+            failures.append("stdout JSON nesting exceeds the safe parser depth")
         else:
-            mismatch = _json_subset(expected["stdout_json_subset"], actual_json)
-            if mismatch:
-                failures.append("stdout JSON mismatch: " + mismatch)
+            try:
+                actual_json = json.loads(stdout)
+            except (json.JSONDecodeError, RecursionError):
+                failures.append("stdout is not valid JSON")
+            else:
+                mismatch = _json_subset(expected["stdout_json_subset"], actual_json)
+                if mismatch:
+                    failures.append("stdout JSON mismatch: " + mismatch)
     return failures
-
 
 def _run_command(case: CommandCase, repo: Path) -> dict[str, Any]:
     base = {
@@ -414,7 +435,6 @@ def _run_command(case: CommandCase, repo: Path) -> dict[str, Any]:
     except ValueError as exc:
         base["failures"] = [f"unsafe command path: {exc}"]
         return base
-
     env = {
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
@@ -454,7 +474,6 @@ def _run_command(case: CommandCase, repo: Path) -> dict[str, Any]:
         stdout = ""
         stderr = ""
         base["failures"] = [f"could not start command: {exc.__class__.__name__}"]
-
     if not base["failures"]:
         base["status"] = "pass"
     else:
@@ -465,7 +484,6 @@ def _run_command(case: CommandCase, repo: Path) -> dict[str, Any]:
 
 def _dataset_status(dataset: str, issues: list[Issue]) -> str:
     return "fail" if any(issue.dataset == dataset for issue in issues) else "pass"
-
 
 def _build_report(
     issues: list[Issue],
@@ -510,11 +528,9 @@ def _build_report(
         ],
     }
 
-
 def _markdown(report: dict[str, Any]) -> str:
     def escaped(value: Any) -> str:
         return str(value).replace("|", "\\|").replace("\n", " ")
-
     status = "PASS" if report["passed"] else "FAIL"
     summary = report["summary"]
     lines = [
@@ -547,7 +563,6 @@ def _markdown(report: dict[str, Any]) -> str:
             )
     else:
         lines.append("| — | SKIPPED | — | No command cases executed |")
-
     lines.extend(["", "## Schema errors", ""])
     if report["errors"]:
         for issue in report["errors"]:
@@ -560,7 +575,6 @@ def _markdown(report: dict[str, Any]) -> str:
     lines.extend(["", "## Limitations", ""])
     lines.extend(f"- {item}" for item in report["limitations"])
     return "\n".join(lines) + "\n"
-
 
 def build_parser() -> argparse.ArgumentParser:
     default_repo = Path(__file__).resolve().parents[1]
@@ -585,7 +599,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=("json", "markdown"), default="json")
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -600,7 +613,6 @@ def main(argv: list[str] | None = None) -> int:
     issues: list[Issue] = []
     eval_count = trigger_count = trigger_true = trigger_false = 0
     embedded_cases: list[Any] = []
-
     try:
         eval_path = _safe_repo_path(repo, args.evals, must_be="file")
     except ValueError as exc:
@@ -609,7 +621,6 @@ def main(argv: list[str] | None = None) -> int:
         eval_data = _load_json(eval_path, "skill_evals", args.evals, issues)
         if eval_data is not None:
             eval_count, embedded_cases = _validate_static_evals(eval_data, issues)
-
     try:
         trigger_path = _safe_repo_path(repo, args.triggers, must_be="file")
     except ValueError as exc:
@@ -618,7 +629,6 @@ def main(argv: list[str] | None = None) -> int:
         trigger_count, trigger_true, trigger_false = _validate_triggers(
             trigger_path, args.triggers, issues
         )
-
     command_results: list[dict[str, Any]] = []
     if not args.skip_commands:
         command_cases = list(embedded_cases)
@@ -630,7 +640,6 @@ def main(argv: list[str] | None = None) -> int:
             command_cases.extend(_load_command_file(command_path, args.commands, issues))
         parsed_cases = _parse_command_cases(command_cases, issues)
         command_results = [_run_command(case, repo) for case in parsed_cases]
-
     report = _build_report(
         issues,
         eval_count,

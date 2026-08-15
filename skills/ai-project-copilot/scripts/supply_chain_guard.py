@@ -18,7 +18,6 @@ class Finding:
     path: str
     message: str
 
-
 @dataclass(frozen=True)
 class GuardReport:
     score: int
@@ -28,7 +27,6 @@ class GuardReport:
     manifest_written: str | None
     warnings: list[str]
 
-
 SHA_REF = re.compile(r"^[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?$")
 USES_RE = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)")
 RUN_RE = re.compile(r"^(?P<indent>\s*)-?\s*run:\s*(?P<body>.*)$", flags=re.IGNORECASE)
@@ -37,7 +35,6 @@ SKILL_INSTALL_PATHS = (
     "skills/ai-project-copilot",
     ".agents/skills/ai-project-copilot",
 )
-
 
 def _structural_line_items(lines: list[str]) -> list[tuple[int, str]]:
     """Return active YAML lines while excluding literal/folded scalar bodies."""
@@ -60,7 +57,6 @@ def _structural_line_items(lines: list[str]) -> list[tuple[int, str]]:
             block_indent = indent
     return result
 
-
 def _workflow_findings(path: Path, rel: str) -> list[Finding]:
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
@@ -70,7 +66,6 @@ def _workflow_findings(path: Path, rel: str) -> list[Finding]:
     has_permissions = bool(re.search(r"^\s*permissions\s*:", active_text, flags=re.MULTILINE | re.IGNORECASE))
     has_pr_target = bool(re.search(r"^\s*pull_request_target\s*:", active_text, flags=re.MULTILINE | re.IGNORECASE))
     has_workflow_run = bool(re.search(r"^\s*workflow_run\s*:", active_text, flags=re.MULTILINE | re.IGNORECASE))
-
     if not has_permissions:
         findings.append(Finding("medium", "missing-permissions", rel, "workflow has no explicit permissions block; review least privilege"))
     if re.search(r"^\s*permissions:\s*write-all\s*$", active_text, flags=re.MULTILINE | re.IGNORECASE):
@@ -79,7 +74,6 @@ def _workflow_findings(path: Path, rel: str) -> list[Finding]:
         findings.append(Finding("high", "privileged-trigger", rel, "pull_request_target is present; verify untrusted fork code is never executed with elevated token/secrets"))
     if has_workflow_run:
         findings.append(Finding("medium", "workflow-run-trigger", rel, "workflow_run is present; verify trust boundary between triggering and privileged workflow"))
-
     checkout_present = False
     for lineno, line in structural_items:
         match = USES_RE.match(line)
@@ -93,7 +87,6 @@ def _workflow_findings(path: Path, rel: str) -> list[Finding]:
         ref = value.rsplit("@", 1)[1]
         if not SHA_REF.fullmatch(ref):
             findings.append(Finding("medium", "mutable-action-ref", rel, f"line {lineno}: `{value}` uses a mutable tag/branch instead of an immutable commit SHA"))
-
     # GitHub expressions are expanded before the shell runs. Scan the entire
     # YAML run scalar (including |/> block bodies), not only the `run:` line.
     index = 0
@@ -131,11 +124,9 @@ def _workflow_findings(path: Path, rel: str) -> list[Finding]:
             index += 1
         if UNTRUSTED_RUN_RE.search(fragment):
             findings.append(Finding("high", "event-interpolation", rel, f"line {start_line}: untrusted GitHub event/head-ref data is interpolated directly into a run command; pass it through env/input handling instead"))
-
     if (has_pr_target or has_workflow_run) and checkout_present:
         findings.append(Finding("high", "privileged-checkout", rel, "privileged trigger and checkout appear together; verify checkout ref cannot select untrusted code"))
     return findings
-
 
 def _hash_files(skill_dir: Path) -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
@@ -149,7 +140,6 @@ def _hash_files(skill_dir: Path) -> list[tuple[str, str]]:
         entries.append((rel, digest))
     return entries
 
-
 def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
     repo = repo.expanduser().resolve()
     if not repo.is_dir():
@@ -159,7 +149,6 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
     findings: list[Finding] = []
     for path in workflow_paths:
         findings.extend(_workflow_findings(path, path.relative_to(repo).as_posix()))
-
     skill_dirs = [(rel, repo / rel) for rel in SKILL_INSTALL_PATHS]
     hashes: list[tuple[str, str]] = []
     warnings: list[str] = []
@@ -171,13 +160,13 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
     if not hashes:
         roots = ", ".join(f"`{path}`" for path in SKILL_INSTALL_PATHS)
         warnings.append(f"no hashable skill files detected under supported installation roots: {roots}")
-
     manifest_written: str | None = None
     if manifest is not None:
         requested = manifest.expanduser()
         if not requested.is_absolute():
             requested = repo / requested
-        if requested.exists() and requested.is_symlink():
+        # Reject dangling links too: exists() is false for them.
+        if requested.is_symlink():
             raise ValueError("refusing to write integrity manifest through a symlink")
         target = requested.parent.resolve() / requested.name
         try:
@@ -195,11 +184,9 @@ def scan(repo: Path, manifest: Path | None = None) -> GuardReport:
         content = "".join(f"{digest}  {rel}\n" for rel, digest in hashes)
         target.write_text(content, encoding="utf-8")
         manifest_written = str(target)
-
     penalty = {"low": 4, "medium": 10, "high": 24, "critical": 40}
     score = max(0, 100 - sum(penalty.get(item.severity, 8) for item in findings))
     return GuardReport(score, findings, len(workflow_paths), len(hashes), manifest_written, warnings)
-
 
 def markdown(report: GuardReport) -> str:
     lines = [
@@ -222,7 +209,6 @@ def markdown(report: GuardReport) -> str:
     lines.extend(["", "> This is a focused heuristic review, not a complete security audit. Confirm findings against the workflow's actual trust model.", ""])
     return "\n".join(lines)
 
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -240,7 +226,6 @@ def main() -> int:
     else:
         print(markdown(report), end="")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

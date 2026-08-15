@@ -17,22 +17,20 @@ TEMPLATE_NAMES = (
     "project-score.json",
 )
 
-
 def safe_directory(path: Path) -> None:
     current = path
     while True:
-        if current.exists() and current.is_symlink():
+        # Path.exists() is false for a dangling symlink.
+        if current.is_symlink():
             raise ValueError(f"Refusing symlinked destination component: {current}")
         if current.parent == current:
             break
         current = current.parent
 
-
 def initialize(repo: Path, output: Path, force: bool) -> dict[str, list[str]]:
     repo = repo.expanduser().resolve()
     if not repo.exists() or not repo.is_dir():
         raise ValueError(f"Repository directory does not exist: {repo}")
-
     candidate = output.expanduser() if output.is_absolute() else repo / output
     safe_directory(candidate)
     destination = candidate.resolve()
@@ -45,20 +43,18 @@ def initialize(repo: Path, output: Path, force: bool) -> dict[str, list[str]]:
     template_dir = Path(__file__).resolve().parents[1] / "assets" / "templates"
     created: list[str] = []
     skipped: list[str] = []
-
     for name in TEMPLATE_NAMES:
         source = template_dir / name
         target = destination / name
         if target.exists() and not force:
             skipped.append(str(target.relative_to(repo)))
             continue
-        if target.exists() and target.is_symlink():
+        if target.is_symlink():
             raise ValueError(f"Refusing to overwrite symlink: {target}")
         shutil.copyfile(source, target)
         created.append(str(target.relative_to(repo)))
 
     return {"created": created, "skipped": skipped}
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -75,7 +71,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -83,7 +78,6 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         print(f"Initialization failed: {exc}", file=sys.stderr)
         return 2
-
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

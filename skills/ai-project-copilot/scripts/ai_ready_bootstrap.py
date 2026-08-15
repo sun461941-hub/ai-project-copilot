@@ -20,7 +20,6 @@ class BootstrapReport:
     tests: list[str]
     ci: list[str]
 
-
 def _content(repo: Path) -> tuple[str, object]:
     context = build_context(repo)
     languages = ", ".join(str(item["name"]) for item in context.languages[:6]) or "not confidently detected"
@@ -29,9 +28,7 @@ def _content(repo: Path) -> tuple[str, object]:
     ci = "\n".join(f"- `{item}`" for item in context.ci[:12]) or "- None detected"
     governance = "\n".join(f"- `{item}`" for item in context.governance[:12]) or "- None detected"
     text = f"""# Repository agent instructions
-
 > Generated as an evidence-based starting point by AI Project Copilot. Review and tailor before relying on it as project policy.
-
 ## Repository evidence
 
 - Detected languages: {languages}
@@ -47,9 +44,7 @@ def _content(repo: Path) -> tuple[str, object]:
 
 ### Governance/instructions
 {governance}
-
 ## Working rules
-
 1. Read the repository README, existing instruction files, manifests, tests, and CI before editing.
 2. Preserve the existing stack and conventions unless repository evidence shows they block the requested outcome.
 3. Make the smallest coherent change that satisfies the task; do not rewrite unrelated code.
@@ -59,18 +54,15 @@ def _content(repo: Path) -> tuple[str, object]:
 7. Before consequential Git/GitHub actions such as merge, force-push, release, permission changes, deployment, or deletion, preview the action and obtain human confirmation.
 8. Run the repository's documented validation commands. If the exact command is unclear, discover it from manifests, CI, and docs rather than guessing.
 9. Report changed files, verification performed, failures, and remaining risks.
-
 ## Verification priority
 
 Use the repository's own tests and CI configuration as the primary source of truth. When a task changes authentication, data schemas, public APIs, CI/supply chain, deployment, or permissions, add targeted risk-specific verification rather than relying only on broad smoke tests.
 """
     return text, context
 
-
-
-
 def _safe_write_target(repo: Path, path: Path) -> None:
-    if path.exists() and path.is_symlink():
+    # exists() is false for dangling links; write_text() would still follow one.
+    if path.is_symlink():
         raise ValueError(f"refusing symlinked target: {path}")
     resolved_parent = path.parent.resolve()
     try:
@@ -110,7 +102,6 @@ def bootstrap(repo: Path, targets: list[str], force: bool = False) -> BootstrapR
         ci=context.ci,
     )
 
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -130,7 +121,6 @@ def main() -> int:
         print("Skipped:", ", ".join(report.skipped) or "none")
         print("Review generated instructions before treating them as project policy.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
