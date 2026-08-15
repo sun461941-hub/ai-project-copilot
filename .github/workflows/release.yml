@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing signed/reviewed tag to publish (for example v3.1.0)"
+        description: "Existing reviewed tag to publish (for example v3.1.0)"
         required: true
         type: string
 
@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-
     steps:
       - name: Check out requested tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -34,7 +33,6 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
-
       - name: Validate tag and checked-out commit
         shell: bash
         env:
@@ -49,7 +47,6 @@ jobs:
           PY
           git show-ref --verify --quiet "refs/tags/${RELEASE_TAG}"
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "${RELEASE_TAG}")"
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -60,7 +57,6 @@ jobs:
           python -c "import platform, sys;
           print('python=', sys.version.replace('\n', ' '));
           print('platform=', platform.platform())"
-
       - name: Validate and test
         run: |
           python tools/validate_skill.py skills/ai-project-copilot
@@ -72,7 +68,6 @@ jobs:
         run: >-
           python tools/package_skill.py skills/ai-project-copilot
           --output dist/ai-project-copilot.skill.zip
-
       - name: Verify deterministic rebuild
         shell: bash
         run: |
@@ -80,7 +75,6 @@ jobs:
           python tools/package_skill.py skills/ai-project-copilot \
             --output dist/ai-project-copilot.skill.zip
           cmp dist/first.skill.zip dist/ai-project-copilot.skill.zip
-
   publish:
     name: Publish approved release
     needs: validate
@@ -98,7 +92,6 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
-
       - name: Revalidate tag
         shell: bash
         env:
@@ -111,7 +104,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.14"
-
       - name: Build approved release archive
         run: >-
           python tools/package_skill.py skills/ai-project-copilot
@@ -122,7 +114,6 @@ jobs:
           python -c "from pathlib import Path; import hashlib;
           p=Path('dist/ai-project-copilot.skill.zip');
           Path('dist/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n', encoding='utf-8')"
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
