@@ -1,35 +1,118 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing signed/reviewed tag to publish (for example v3.1.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  release:
+  validate:
+    name: Validate release candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
 
     steps:
-      - name: Check out tagged source
+      - name: Check out requested tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate tag and checked-out commit
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python - "$RELEASE_TAG" <<'PY'
+          import re
+          import sys
+          tag = sys.argv[1]
+          if not re.fullmatch(r"v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?", tag):
+              raise SystemExit(f"invalid release tag: {tag!r}")
+          PY
+          git show-ref --verify --quiet "refs/tags/${RELEASE_TAG}"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "${RELEASE_TAG}")"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.14"
 
+      - name: Runtime diagnostics
+        run: >-
+          python -c "import platform, sys;
+          print('python=', sys.version.replace('\n', ' '));
+          print('platform=', platform.platform())"
+
       - name: Validate and test
         run: |
           python tools/validate_skill.py skills/ai-project-copilot
           python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
           python -m unittest discover -s tests -v
+          python -m compileall -q tools tests skills/ai-project-copilot/scripts
 
       - name: Build release archive
+        run: >-
+          python tools/package_skill.py skills/ai-project-copilot
+          --output dist/ai-project-copilot.skill.zip
+
+      - name: Verify deterministic rebuild
+        shell: bash
+        run: |
+          cp dist/ai-project-copilot.skill.zip dist/first.skill.zip
+          python tools/package_skill.py skills/ai-project-copilot \
+            --output dist/ai-project-copilot.skill.zip
+          cmp dist/first.skill.zip dist/ai-project-copilot.skill.zip
+
+  publish:
+    name: Publish approved release
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out approved tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revalidate tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          git show-ref --verify --quiet "refs/tags/${RELEASE_TAG}"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "${RELEASE_TAG}")"
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+
+      - name: Build approved release archive
         run: >-
           python tools/package_skill.py skills/ai-project-copilot
           --output dist/ai-project-copilot.skill.zip
@@ -43,10 +126,11 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: >-
-          gh release create "${GITHUB_REF_NAME}"
+          gh release create "${RELEASE_TAG}"
           dist/ai-project-copilot.skill.zip
           dist/SHA256SUMS.txt
           --verify-tag
           --generate-notes
-          --title "AI Project Copilot ${GITHUB_REF_NAME}"
+          --title "AI Project Copilot ${RELEASE_TAG}"

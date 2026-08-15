@@ -4,13 +4,22 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   test:
     name: ${{ matrix.os }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +36,15 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Runtime diagnostics
+        run: >-
+          python -c "import os, platform, sys;
+          print('python=', sys.version.replace('\n', ' '));
+          print('executable=', sys.executable);
+          print('platform=', platform.platform());
+          print('cwd=', os.getcwd());
+          print('utf8_mode=', sys.flags.utf8_mode)"
 
       - name: Validate skill
         run: python tools/validate_skill.py skills/ai-project-copilot
@@ -46,6 +64,7 @@ jobs:
     name: Build distributable skill
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -57,6 +76,12 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.14"
+
+      - name: Runtime diagnostics
+        run: >-
+          python -c "import platform, sys;
+          print('python=', sys.version.replace('\n', ' '));
+          print('platform=', platform.platform())"
 
       - name: Build deterministic archive
         run: >-
@@ -77,3 +102,4 @@ jobs:
             dist/ai-project-copilot.skill.zip
             dist/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,62 @@
+{
+  "patch": "ai-project-copilot-fix4.0-comprehensive-hardening",
+  "format": 1,
+  "application": {
+    "overlay": "extract to repository root and overwrite listed files",
+    "gateway": "run: python tools/apply_fix4_gateway_patch.py --repo .",
+    "gateway_check": "run: python tools/apply_fix4_gateway_patch.py --repo . --check"
+  },
+  "verification": {
+    "python_compile": "pass",
+    "regression_tests": "13/13 pass",
+    "workflow_yaml_parse": "pass",
+    "test_command": "python -m unittest discover -s tests -v"
+  },
+  "payload_files_excluding_this_manifest": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "596e1ec4b61b3f5ad9c771e6dc16bc45e9ca203d778ba84040f0a54989e3059d",
+      "bytes": 3090
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "cf15ad0d20910f7f114b60aeee10db4115fabe41e9062ed04d936b35677106c2",
+      "bytes": 4188
+    },
+    {
+      "path": "FIX4.0_DELETE_LIST.txt",
+      "sha256": "25c8b8a14bc62e7dd795fadd45ba2f63a5ce348f7d70eca6cd2629aa8d8d0b46",
+      "bytes": 348
+    },
+    {
+      "path": "FIX4.0_PATCH_NOTES.zh-CN.md",
+      "sha256": "814dcdba146771aa6719b1956e2081cef9a4e37682d993319d60ee2561dd9279",
+      "bytes": 4251
+    },
+    {
+      "path": "skills/ai-project-copilot/scripts/evidence_cache.py",
+      "sha256": "20ca71d91c3ae8bcd15f430a7feb98baf6e2e3f5a67dab53d79bba8c5c2cdf8b",
+      "bytes": 11347
+    },
+    {
+      "path": "skills/ai-project-copilot/scripts/mcp_config_audit.py",
+      "sha256": "0c64ded5c096ea9437692dffd0b0252877b94892baa1cc6c803f9d851e9d9547",
+      "bytes": 15768
+    },
+    {
+      "path": "skills/ai-project-copilot/scripts/supply_chain_guard.py",
+      "sha256": "5d9ec740a5341afdbc04c95b9b0711e55249cc7834452c1d5425ea4404f0bbe6",
+      "bytes": 18136
+    },
+    {
+      "path": "tests/test_fix4_comprehensive_hardening.py",
+      "sha256": "0fdb71aef0425028bca75cf58d0d2d27b5f7056103433785a88f67df223b8771",
+      "bytes": 8917
+    },
+    {
+      "path": "tools/apply_fix4_gateway_patch.py",
+      "sha256": "fcf0165ffdfab54cb467b6f9143da07b79eb40d1310414796ad1c2b96417cab8",
+      "bytes": 10660
+    }
+  ]
+}
