@@ -1,8 +1,0 @@
-# Review before deleting. The patch does not remove files automatically.
-# These historical delivery artifacts can make the repository source of truth ambiguous.
-
-ai-project-copilot-patch/
-ai-project-copilot-fixed-source.zip
-ai-project-copilot-repair.patch
-ai-project-copilot-v2.1.1-hardening.patch
-ai-project-copilot-v2.1.1-hardening.patch.sha256

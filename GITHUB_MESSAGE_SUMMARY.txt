@@ -1,1 +1,0 @@
-fix: harden Python 3.14 CI and apply v2.1.1 security fixes
