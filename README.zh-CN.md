@@ -1,56 +1,66 @@
-# AI Project Copilot 完整修复包
+# AI Project Copilot
 
-适用仓库：`sun461941-hub/ai-project-copilot`
+一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
 
-补丁基线：`245cefcc31baf72292addac4e2fdf58ead145e8e`（`fix`）
+> 当前主分支包含 fix3.0 系列加固。正式版本号应以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准；不要把临时补丁 ZIP 或解压目录当成产品源码提交。
 
-## 重要说明
+## 核心能力
 
-上一次失败的直接原因是：解压后的 `ai-project-copilot-patch/` 目录被提交到了仓库，但其中的补丁没有应用到项目真实路径，所以 CI 仍然运行旧源码。
+| 能力通道 | 主要用途 | 对应实现 |
+|---|---|---|
+| Discover | 映射陌生仓库、生成受控的 Agent 指令草案、审计本地 Skill Stack | `repo_context.py`、`ai_ready_bootstrap.py`、`skill_stack_audit.py` |
+| Launch / Retrofit | 从模糊想法选择可演示的 AI 垂直切片，或为现有产品增加高价值 AI 能力 | 24 个蓝图、`rank_blueprints.py`、架构参考 |
+| Maintain | 对 Issue 做确定性预分诊，并改善维护者工作流 | `maintainer_triage.py` |
+| Review | 对变更风险排序，并验证 review thread 是否收敛 | `change_risk.py`、`review_convergence.py` |
+| Release | 给出 SemVer 建议、发布说明草案和迁移阻断项 | `release_intel.py` |
+| Secure | 检查 GitHub Actions、MCP 配置、权限、依赖引用和 Skill 完整性 | `supply_chain_guard.py`、`mcp_config_audit.py` |
+| Quality | 验证 eval 数据并运行确定性命令用例 | `run_skill_evals.py` |
+| Budget | 使用 SQLite 做模型预算路由，并通过 OpenAI Responses Gateway 执行受控请求 | `model_budget_autopilot.py`、`model_budget_gateway.py` |
 
-**不要把本修复包或解压后的修复包目录直接提交进仓库。**
-
-## 推荐应用方式
-
-在仓库根目录执行：
+## 快速验证
 
 ```bash
-git checkout main
-git pull --ff-only
-git status --short
-git apply --check /path/to/ai-project-copilot-repair-from-245cefc.patch
-git apply /path/to/ai-project-copilot-repair-from-245cefc.patch
+python tools/validate_skill.py skills/ai-project-copilot
+python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
 python -m unittest discover -s tests -v
-git add -A
-git commit -m "fix: apply complete CI repair"
-git push
+python -m compileall -q tools tests skills/ai-project-copilot/scripts
 ```
 
-`git status --short` 在应用前应为空。如果 `git apply --check` 失败，请不要强行提交，应先确认当前 `main` 是否仍以 `245cefc` 为最新提交。
+## 打包
 
-## 文件说明
+```bash
+python tools/package_skill.py skills/ai-project-copilot \
+  --output dist/ai-project-copilot.skill.zip
+```
 
-- `ai-project-copilot-repair-from-245cefc.patch`：推荐给开发者使用的正式 Git 补丁；会修改真实源码，并删除上次误提交的 `ai-project-copilot-patch/` 目录。
-- `ai-project-copilot-fixed-source.zip`：完整的已修复源码快照，不包含 `.git`；用于核对或在无法应用补丁时导入。
-- `SHA256SUMS.txt`：上述两个文件的 SHA-256 校验值。
+## 手机 Working Copy 用户
 
-## 本次修复
+推荐流程：
 
-- 在 JSON 解析前执行不依赖 Python 版本的安全嵌套深度检查，修复 Ubuntu / Python 3.14 的 `invalid_root` 与 `invalid_json` 行为差异。
-- 正确忽略 JSON 字符串内部的方括号和转义引号，避免误报。
-- 修复文档初始化、AI 配置引导和供应链清单写入中的悬空符号链接逃逸风险。
-- 让维护者分诊工具对损坏、非 UTF-8 或过深的 JSON 返回干净的 CLI 错误，而不是 traceback。
-- 删除提交 `245cefc` 中误加入仓库的旧补丁目录。
-- 增加相应回归测试。
+1. 在 Working Copy 中 Pull 最新 `main`，确认 Changes 为空。
+2. 创建独立分支，或先把引导补丁提交到 `main` 后立即运行一次手动工作流。
+3. 导入补丁 ZIP 时选择 **Extract to existing repository**，目标为仓库根目录。
+4. 检查 Changes，确保没有多余的外层目录、`.git`、密钥、缓存或大面积删除。
+5. 推送后通过 GitHub Actions 运行完整验证。
+6. 只在修复分支全绿后创建 Pull Request 并合并。
 
-## 验证结果
+## 安全边界
 
-- 定向 JSON 回归测试：通过。
-- 完整单元测试：`234/234`，连续四轮通过（包括全新克隆应用补丁后，以及从最终交付包解压源码后运行）。
-- Skill 验证：通过。
-- 确定性 Skill evals：通过（25 个静态用例、20 个触发用例、3 个命令用例）。
-- Python 源码编译：通过。
-- Skill 打包与 ZIP 完整性校验：通过。
-- `git diff --check` 与 `git apply --check`：通过。
+- 启发式分数只能用于安排审查优先级，不是安全或生产就绪证书。
+- 真实 OpenAI 网络路径需要使用你自己的 API Key 在目标环境中验证；CI 的注入式 transport 只能证明协议和控制流。
+- Gateway 当前只覆盖文本输入和文本/JSON 输出，不支持多模态、tools、background jobs 或绝对费用保证。
+- 发布、合并、部署、权限变更和删除等 consequential writes 必须保留人工确认。
+- API Key 只应通过环境变量提供，禁止写入仓库、测试、日志或补丁文件。
 
-当前执行环境提供 Python 3.12，没有本地 Python 3.14 可执行文件；针对 3.14 的失败路径已通过“解析前”深度检查改为版本无关逻辑，并由 300 层输入的确定性回归测试覆盖。
+## 版本与发布治理
+
+`fix3.0` 可以作为修复批次名称，但正式公开版本建议统一使用 SemVer，例如 `v3.0.0`。发布前应同步：
+
+- `CHANGELOG.md`
+- README / 中文 README
+- Skill 元数据
+- Git tag
+- GitHub Release
+- 发布包与 SHA-256
+
+GitHub Actions 中引用 `release` environment 并不自动产生审批；还需要在仓库 Settings → Environments → release 中配置 Required reviewers。

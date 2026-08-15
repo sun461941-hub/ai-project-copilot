@@ -1,0 +1,95 @@
+name: Apply fix5 mobile patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Source branch or commit (normally main)"
+        required: true
+        default: "main"
+        type: string
+      output_branch:
+        description: "New branch that will receive the completed patch"
+        required: true
+        default: "fix5-mobile-ready"
+        type: string
+      confirmation:
+        description: "Type APPLY_FIX5 to authorize creation of the patch branch"
+        required: true
+        type: string
+
+concurrency:
+  group: apply-fix5-${{ inputs.output_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor == github.repository_owner && inputs.confirmation == 'APPLY_FIX5'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out requested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+
+      - name: Validate branch input and repository state
+        shell: bash
+        env:
+          OUTPUT_BRANCH: ${{ inputs.output_branch }}
+        run: |
+          python - "$OUTPUT_BRANCH" <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          branch = sys.argv[1]
+          if not re.fullmatch(r"[A-Za-z0-9._/-]{1,120}", branch):
+              raise SystemExit("invalid output branch name")
+          if branch.startswith(("-", "/", ".")) or ".." in branch or branch.endswith(("/", ".")):
+              raise SystemExit("unsafe output branch name")
+          result = subprocess.run(
+              ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          )
+          if result.returncode == 0:
+              raise SystemExit(f"remote branch already exists: {branch}")
+          if result.returncode not in (0, 2):
+              raise SystemExit("could not verify remote branch state")
+          PY
+          test -z "$(git status --porcelain)"
+
+      - name: Apply exact fix5 patch
+        run: python tools/apply_fix5_mobile_release.py --repo .
+
+      - name: Validate completed source
+        run: |
+          python tools/apply_fix5_mobile_release.py --repo . --check
+          python tools/validate_skill.py skills/ai-project-copilot
+          python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
+          python -m unittest discover -s tests -v
+          python -m compileall -q tools tests skills/ai-project-copilot/scripts
+
+      - name: Commit to a new review branch
+        shell: bash
+        env:
+          OUTPUT_BRANCH: ${{ inputs.output_branch }}
+        run: |
+          git switch -c "$OUTPUT_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git diff --cached --check
+          git commit -m "fix: apply comprehensive gateway hardening"
+          git push origin "HEAD:refs/heads/${OUTPUT_BRANCH}"
