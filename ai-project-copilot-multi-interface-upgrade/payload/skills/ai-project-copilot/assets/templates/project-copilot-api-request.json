@@ -1,0 +1,10 @@
+{
+  "capability": "copilot_run",
+  "arguments": {
+    "goal": "review this PR for security risk",
+    "repo": "/absolute/path/to/repository",
+    "base": "main",
+    "head": "HEAD",
+    "include_evals": false
+  }
+}

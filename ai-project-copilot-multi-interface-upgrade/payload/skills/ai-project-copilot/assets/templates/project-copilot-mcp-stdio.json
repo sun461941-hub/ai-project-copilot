@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ai-project-copilot": {
+      "command": "python3",
+      "args": [
+        "/absolute/path/to/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
+        "--allow-root",
+        "/absolute/path/to/repository"
+      ]
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "name": "ai-project-copilot-multi-interface-upgrade",
+  "version": "2.2.0-preview.2",
+  "target": "AI Project Copilot 2.1 main-compatible overlay",
+  "baseline_observed_date": "2026-08-15",
+  "interfaces": [
+    "skill",
+    "cli",
+    "rest",
+    "mcp-stdio"
+  ],
+  "mcp_protocols": [
+    "2026-07-28",
+    "2025-11-25-legacy",
+    "2025-06-18-legacy"
+  ],
+  "files": [
+    {
+      "path": "payload/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json",
+      "sha256": "88c68d3afbbf326fe90fd4bc377d836b049d1b265672751450c16d1a2ff63d04",
+      "bytes": 215
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json",
+      "sha256": "a625cc9cccd01bc58375ca254307bb74470c019f303ccfd1e54227141d641b3e",
+      "bytes": 261
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/references/multi-interface-gateway.md",
+      "sha256": "4c031d9a8b29f21229cf18ba37d89a6616e7ddd530c19a0669ed3079ed8dda8f",
+      "bytes": 7511
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/scripts/project_copilot.py",
+      "sha256": "f1f44c086b21ef290fff6414cd40c59d7446344c997def738e595b8ccb06fb86",
+      "bytes": 5531
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/scripts/project_copilot_api.py",
+      "sha256": "def381304b5c773331daf8d79ce9371937d16a8c9bef0e6a6b13277a4b05ff65",
+      "bytes": 9985
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/scripts/project_copilot_core.py",
+      "sha256": "a86f701a2aae511597c077d0ac05661be28f20435dbddafc7500b56ff6c517f3",
+      "bytes": 29974
+    },
+    {
+      "path": "payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
+      "sha256": "ad9c092187045dfa42012e9be599f31b1a4e1c9db8fd52534a804b264be26763",
+      "bytes": 11114
+    },
+    {
+      "path": "payload/tests/test_multi_interface_gateway.py",
+      "sha256": "7217aa5cdc07fb0822add9cf81082d629d16c63f7ddb679b04a01ec01551844b",
+      "bytes": 12351
+    },
+    {
+      "path": "apply_multi_interface_patch.py",
+      "sha256": "4ea7ff215ae94ede1a0af03e5b77a7ba6de25d3adfadae53ee17d631a2e60b29",
+      "bytes": 16437
+    },
+    {
+      "path": "ai-project-copilot-multi-interface.patch",
+      "sha256": "90f14d8fa56bd2d25ef0ffb5c6f230e24ef3493b4863af9bffd3c839309b55c0",
+      "bytes": 147185
+    },
+    {
+      "path": "PATCH_NOTES.zh-CN.md",
+      "sha256": "752c86ef1e0983c04b910a0ce646e600d5c1c0c1fc49cca4b27ed6b382aacd8f",
+      "bytes": 7424
+    },
+    {
+      "path": "README_FIRST.txt",
+      "sha256": "9c5d6295dfd7bd5f9fa1bd29bdb02ee3255fae9088c49352adb34db615587c1a",
+      "bytes": 621
+    },
+    {
+      "path": "SKILL_INSERT.md",
+      "sha256": "78e947d9b250ef2509c514dde3569b2a8ab1c45c4a873ca15b4f608b99cc4ced",
+      "bytes": 1157
+    },
+    {
+      "path": "VERIFICATION_REPORT.zh-CN.md",
+      "sha256": "3cf6c5c3395f1c43ae22f7cc342f1d04dfd20914b2200a5df7ee26eb1d90ba07",
+      "bytes": 4614
+    },
+    {
+      "path": "package_tests/test_installer.py",
+      "sha256": "30343f85cb219bb32b1b7a638ef6a2d603c6792d67c2b0042faeb4438024f3b3",
+      "bytes": 4984
+    }
+  ],
+  "validation": {
+    "gateway_tests": 14,
+    "gateway_tests_status": "passed",
+    "installer_tests": 7,
+    "installer_tests_status": "passed",
+    "git_apply_check": "passed on synthetic 2.1-compatible fixture",
+    "git_apply_and_gateway_tests": "passed on synthetic 2.1-compatible fixture",
+    "installer_apply_run_tests_rollback": "passed on synthetic 2.1-compatible fixture",
+    "python_compile": "passed",
+    "git_diff_check": "passed",
+    "current_main_skill_anchor": "verified via GitHub web on 2026-08-15",
+    "full_current_main_checkout_ci": "not available in execution sandbox; developer checkout validation still required"
+  },
+  "preview_1_audit_fixes": [
+    "MCP 2026-07-28 final-schema conformance for per-request metadata, resultType, and serverInfo result metadata",
+    "transactional installer preflight/restore to avoid partial apply or rollback",
+    "bounded pipe draining instead of unbounded temporary-file output",
+    "strict capability argument validation and explicit partial orchestration status",
+    "REST connection timeout and bounded request-thread concurrency",
+    "installer ownership receipt and persistent backup for force-replaced files"
+  ]
+}
