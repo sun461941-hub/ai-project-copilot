@@ -1,0 +1,2239 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index b7359d5..93a4543 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -49,6 +49,9 @@ jobs:
+       - name: Validate skill
+         run: python tools/validate_skill.py skills/ai-project-copilot
+ 
++      - name: Verify gateway hardening state
++        run: python tools/apply_fix6_mobile_release.py --repo . --check
++
+       - name: Run deterministic Skill evals
+         run: >-
+           python skills/ai-project-copilot/scripts/run_skill_evals.py
+@@ -57,8 +60,26 @@ jobs:
+       - name: Run unit tests
+         run: python -m unittest discover -s tests -v
+ 
++      - name: Run preview installer tests
++        working-directory: ai-project-copilot-multi-interface-upgrade
++        run: python -m unittest discover -s package_tests -v
++
++      - name: Run preview gateway tests
++        working-directory: ai-project-copilot-multi-interface-upgrade/payload
++        run: python -m unittest discover -s tests -v
++
++      - name: Verify checked-in integrity manifests
++        if: runner.os == 'Linux'
++        run: |
++          sha256sum -c SHA256SUMS.txt
++          (cd ai-project-copilot-patch && sha256sum -c SHA256SUMS.txt)
++          (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
++
+       - name: Compile Python sources
+-        run: python -m compileall -q tools tests skills/ai-project-copilot/scripts
++        run: >-
++          python -m compileall -q tools tests skills/ai-project-copilot/scripts
++          ai-project-copilot-multi-interface-upgrade/package_tests
++          ai-project-copilot-multi-interface-upgrade/payload
+ 
+   package:
+     name: Build distributable skill
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index f2ab378..cc15f35 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -60,9 +60,13 @@ jobs:
+       - name: Validate and test
+         run: |
+           python tools/validate_skill.py skills/ai-project-copilot
++          python tools/apply_fix6_mobile_release.py --repo . --check
+           python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
+           python -m unittest discover -s tests -v
+           python -m compileall -q tools tests skills/ai-project-copilot/scripts
++          sha256sum -c SHA256SUMS.txt
++          (cd ai-project-copilot-patch && sha256sum -c SHA256SUMS.txt)
++          (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
+ 
+       - name: Build release archive
+         run: >-
+@@ -73,8 +77,8 @@ jobs:
+         run: |
+           cp dist/ai-project-copilot.skill.zip dist/first.skill.zip
+           python tools/package_skill.py skills/ai-project-copilot \
+-            --output dist/ai-project-copilot.skill.zip
+-          cmp dist/first.skill.zip dist/ai-project-copilot.skill.zip
++            --output dist/second.skill.zip
++          cmp dist/first.skill.zip dist/second.skill.zip
+   publish:
+     name: Publish approved release
+     needs: validate
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 4ac92a8..f0cc6bf 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,14 @@ All notable changes to AI Project Copilot are documented here.
+ 
+ ## [Unreleased]
+ 
++### Fixed
++
++- **fix6 gateway source hardening** rejects unsafe nesting across all real Gateway JSON boundaries and converts recursion failures into controlled errors;
++- bounded JSON parsing now covers provider HTTP errors, SSE events, token-count responses, local request files, served-model maps, and quality policies;
++- release validation rebuilds to a distinct archive instead of asking the fail-closed packager to overwrite its first output;
++- preview REST/MCP inputs are size/depth bounded, non-loopback plaintext serving is rejected, and preview installer paths reject symlink escapes;
++- CI now exercises preview gateway/installer tests and repository integrity checks.
++
+ ## [2.1.0] - 2026-08-14
+ 
+ ### Added
+diff --git a/FIX5_MANIFEST.json b/FIX5_MANIFEST.json
+index 8a94c44..6575eda 100644
+--- a/FIX5_MANIFEST.json
++++ b/FIX5_MANIFEST.json
+@@ -1,20 +1,16 @@
+ {
+   "files": {
+     ".github/workflows/apply-fix5-mobile.yml": {
+-      "bytes": 3323,
+-      "sha256": "1f035237ce84245b6cc7a0ccd44f2c218fe8575b677b0b9d75adfb397d207e10"
+-    },
+-    "FIX5_CLEANUP_CANDIDATES.txt": {
+-      "bytes": 451,
+-      "sha256": "9b97c2186cb74bc930bb07b554f4c398d31449d960bcf67133fb5fdf589f8b74"
++      "bytes": 360,
++      "sha256": "03b81a89d53c125e676f172e3abc7324ab455346e74985a5845b57aa9d49e64f"
+     },
+     "FIX5_MOBILE_PATCH_NOTES.zh-CN.md": {
+       "bytes": 2565,
+       "sha256": "88ca3ea72dcc1be275f5f447b54ba00d9a3eca1186f46e94df71061e773bb0e0"
+     },
+     "README.zh-CN.md": {
+-      "bytes": 3460,
+-      "sha256": "52cb57c1b86c40e90a5d4370982b83a4421e5d374d7affc4fcb14f04982ec55c"
++      "bytes": 3450,
++      "sha256": "29e3643773a2976ea7940dcf2dfe9b2e7f519af0da93a0e65caa396586965b19"
+     },
+     "tools/apply_fix5_mobile_release.py": {
+       "bytes": 18459,
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index 685c818..2ee52c4 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -2,7 +2,7 @@
+ 
+ 一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
+ 
+-> 当前主分支包含 fix3.0 系列加固。正式版本号应以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准；不要把临时补丁 ZIP 或解压目录当成产品源码提交。
++> 当前可安装 Skill 版本为 2.1.x；多接口 Gateway 仍是独立的 2.2 预览补丁，不代表正式发布。正式版本号应以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
+ 
+ ## 核心能力
+ 
+@@ -54,7 +54,7 @@ python tools/package_skill.py skills/ai-project-copilot \
+ 
+ ## 版本与发布治理
+ 
+-`fix3.0` 可以作为修复批次名称，但正式公开版本建议统一使用 SemVer，例如 `v3.0.0`。发布前应同步：
++内部修复批次名称不能代替公开版本。正式公开版本应统一使用 SemVer；发布前应同步：
+ 
+ - `CHANGELOG.md`
+ - README / 中文 README
+diff --git a/ROADMAP.md b/ROADMAP.md
+index b3f61a1..3b52a86 100644
+--- a/ROADMAP.md
++++ b/ROADMAP.md
+@@ -33,8 +33,9 @@ This roadmap describes intended directions, not promises or compatibility guaran
+ - executable structural/deterministic Skill eval runner;
+ - official Skill frontmatter compatibility and targeted context/security fixes.
+ 
+-## v2.2 — Connected GitHub evidence adapters
++## v2.2 — Multi-interface preview + connected evidence adapters
+ 
++- graduate the reviewed CLI/REST/MCP preview into the installable Skill only after security and compatibility gates pass;
+ - normalized read-only import for issue/PR/release/workflow exports;
+ - compare local deterministic reports with GitHub-native status evidence;
+ - contributor and maintenance trend snapshots from user-authorized data;
+diff --git a/SHA256SUMS.txt b/SHA256SUMS.txt
+index 8544461..4b6c243 100644
+--- a/SHA256SUMS.txt
++++ b/SHA256SUMS.txt
+@@ -1,2 +1,4 @@
+-d88edf534e75efb9f9c464f02d197900c5c1d7761ed1e65270068dcfb4ee7c07  ai-project-copilot-repair-from-245cefc.patch
+-8952405c118771f0a1996324a4d102330deadb8e256769fbb94323895ef65688  ai-project-copilot-fixed-source.zip
++7b2f1bbd8feb058d4bf9d6c3890c9a3950a1f22cd7a8ee3bc9873ec45a2f6f73  FIX5_MANIFEST.json
++c18025204b420753f6dfa060cd6a44b7331723f9b6a9cd477b8c6c4140a975ad  ai-project-copilot-patch/ai-project-copilot-fixes.patch
++47f9c55926ed27e45d4ddf3f849f68c6f2833ba51b34a762af8e8f059bd59ad8  ai-project-copilot-multi-interface-upgrade/MANIFEST.json
++e2aa81cb6284d25fa6a196a49da1f64117e0d1940320d1495ede6159fbc120e2  ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+diff --git a/ai-project-copilot-multi-interface-upgrade/MANIFEST.json b/ai-project-copilot-multi-interface-upgrade/MANIFEST.json
+index 83e33b2..c556cd4 100644
+--- a/ai-project-copilot-multi-interface-upgrade/MANIFEST.json
++++ b/ai-project-copilot-multi-interface-upgrade/MANIFEST.json
+@@ -27,8 +27,8 @@
+     },
+     {
+       "path": "payload/skills/ai-project-copilot/references/multi-interface-gateway.md",
+-      "sha256": "4c031d9a8b29f21229cf18ba37d89a6616e7ddd530c19a0669ed3079ed8dda8f",
+-      "bytes": 7511
++      "sha256": "3f59c2a556f86e6be6b1a6f2547eda6a24e7e3276dd01c41eaca3a2db46f367f",
++      "bytes": 7564
+     },
+     {
+       "path": "payload/skills/ai-project-copilot/scripts/project_copilot.py",
+@@ -37,8 +37,8 @@
+     },
+     {
+       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_api.py",
+-      "sha256": "def381304b5c773331daf8d79ce9371937d16a8c9bef0e6a6b13277a4b05ff65",
+-      "bytes": 9985
++      "sha256": "ac3b0b3a1177bca3426f9b5926605049789f77272cc12d6ab72000949b3871f4",
++      "bytes": 10859
+     },
+     {
+       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_core.py",
+@@ -47,8 +47,8 @@
+     },
+     {
+       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
+-      "sha256": "ad9c092187045dfa42012e9be599f31b1a4e1c9db8fd52534a804b264be26763",
+-      "bytes": 11114
++      "sha256": "bf4f89c28135f831abc687928aa5ee5a9a0b8aed53729fda09774ba1acad5696",
++      "bytes": 12630
+     },
+     {
+       "path": "payload/tests/test_multi_interface_gateway.py",
+@@ -57,13 +57,13 @@
+     },
+     {
+       "path": "apply_multi_interface_patch.py",
+-      "sha256": "4ea7ff215ae94ede1a0af03e5b77a7ba6de25d3adfadae53ee17d631a2e60b29",
+-      "bytes": 16437
++      "sha256": "9a306e1c05498488d2769bbac2789be9d891dd935ced1e8ce5ab001fc7989c6e",
++      "bytes": 18181
+     },
+     {
+       "path": "ai-project-copilot-multi-interface.patch",
+-      "sha256": "90f14d8fa56bd2d25ef0ffb5c6f230e24ef3493b4863af9bffd3c839309b55c0",
+-      "bytes": 147185
++      "sha256": "e2aa81cb6284d25fa6a196a49da1f64117e0d1940320d1495ede6159fbc120e2",
++      "bytes": 85613
+     },
+     {
+       "path": "PATCH_NOTES.zh-CN.md",
+diff --git a/ai-project-copilot-multi-interface-upgrade/SHA256SUMS.txt b/ai-project-copilot-multi-interface-upgrade/SHA256SUMS.txt
+index 50a2f94..8490ce5 100644
+--- a/ai-project-copilot-multi-interface-upgrade/SHA256SUMS.txt
++++ b/ai-project-copilot-multi-interface-upgrade/SHA256SUMS.txt
+@@ -1,16 +1,16 @@
+-d30099793e1f85f1398d4c5116349f552b1d4fec3c937047823d4d3fdf467242  ./MANIFEST.json
++47f9c55926ed27e45d4ddf3f849f68c6f2833ba51b34a762af8e8f059bd59ad8  ./MANIFEST.json
+ 752c86ef1e0983c04b910a0ce646e600d5c1c0c1fc49cca4b27ed6b382aacd8f  ./PATCH_NOTES.zh-CN.md
+ 9c5d6295dfd7bd5f9fa1bd29bdb02ee3255fae9088c49352adb34db615587c1a  ./README_FIRST.txt
+ 78e947d9b250ef2509c514dde3569b2a8ab1c45c4a873ca15b4f608b99cc4ced  ./SKILL_INSERT.md
+ 3cf6c5c3395f1c43ae22f7cc342f1d04dfd20914b2200a5df7ee26eb1d90ba07  ./VERIFICATION_REPORT.zh-CN.md
+-90f14d8fa56bd2d25ef0ffb5c6f230e24ef3493b4863af9bffd3c839309b55c0  ./ai-project-copilot-multi-interface.patch
+-4ea7ff215ae94ede1a0af03e5b77a7ba6de25d3adfadae53ee17d631a2e60b29  ./apply_multi_interface_patch.py
++e2aa81cb6284d25fa6a196a49da1f64117e0d1940320d1495ede6159fbc120e2  ./ai-project-copilot-multi-interface.patch
++9a306e1c05498488d2769bbac2789be9d891dd935ced1e8ce5ab001fc7989c6e  ./apply_multi_interface_patch.py
+ 30343f85cb219bb32b1b7a638ef6a2d603c6792d67c2b0042faeb4438024f3b3  ./package_tests/test_installer.py
+ 88c68d3afbbf326fe90fd4bc377d836b049d1b265672751450c16d1a2ff63d04  ./payload/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json
+ a625cc9cccd01bc58375ca254307bb74470c019f303ccfd1e54227141d641b3e  ./payload/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json
+-4c031d9a8b29f21229cf18ba37d89a6616e7ddd530c19a0669ed3079ed8dda8f  ./payload/skills/ai-project-copilot/references/multi-interface-gateway.md
++3f59c2a556f86e6be6b1a6f2547eda6a24e7e3276dd01c41eaca3a2db46f367f  ./payload/skills/ai-project-copilot/references/multi-interface-gateway.md
+ f1f44c086b21ef290fff6414cd40c59d7446344c997def738e595b8ccb06fb86  ./payload/skills/ai-project-copilot/scripts/project_copilot.py
+-def381304b5c773331daf8d79ce9371937d16a8c9bef0e6a6b13277a4b05ff65  ./payload/skills/ai-project-copilot/scripts/project_copilot_api.py
++ac3b0b3a1177bca3426f9b5926605049789f77272cc12d6ab72000949b3871f4  ./payload/skills/ai-project-copilot/scripts/project_copilot_api.py
+ a86f701a2aae511597c077d0ac05661be28f20435dbddafc7500b56ff6c517f3  ./payload/skills/ai-project-copilot/scripts/project_copilot_core.py
+-ad9c092187045dfa42012e9be599f31b1a4e1c9db8fd52534a804b264be26763  ./payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
++bf4f89c28135f831abc687928aa5ee5a9a0b8aed53729fda09774ba1acad5696  ./payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+ 7217aa5cdc07fb0822add9cf81082d629d16c63f7ddb679b04a01ec01551844b  ./payload/tests/test_multi_interface_gateway.py
+diff --git a/ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch b/ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+index 547f598..68e2fed 100644
+--- a/ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
++++ b/ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+@@ -1,8 +1,8 @@
+ diff --git a/skills/ai-project-copilot/SKILL.md b/skills/ai-project-copilot/SKILL.md
+-index 6e620389772f745a3a8fec9a4bed8b1d159d1904..b63c96b865d662d009a66565ddeb7f33e313477f 100644
++index b29753a..30d404d 100644
+ --- a/skills/ai-project-copilot/SKILL.md
+ +++ b/skills/ai-project-copilot/SKILL.md
+-@@ -2,6 +2,17 @@
++@@ -52,6 +52,17 @@ For an application-owned model-cost portfolio, read `references/model-budget-aut
+  
+  For a live-capable OpenAI execution loop, read `references/openai-responses-gateway.md`, then use `scripts/model_budget_gateway.py`. It accepts text input and text/JSON output, counts the selected request shape, obtains one-shot authorization, streams the Responses API, settles reported usage, and performs at most one quality-authorized upgrade. Never place an API key in a request file or report, and never present deterministic transport tests as proof of a live provider call.
+  
+@@ -22,7 +22,7 @@ index 6e620389772f745a3a8fec9a4bed8b1d159d1904..b63c96b865d662d009a66565ddeb7f33
+  Read `references/capability-router.md` only for broad or multi-domain work.
+ diff --git a/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json b/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..019712a6a29c8f30dc41a460acb63806c8c5b129
++index 0000000..019712a
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json
+ @@ -0,0 +1,10 @@
+@@ -38,7 +38,7 @@ index 0000000000000000000000000000000000000000..019712a6a29c8f30dc41a460acb63806
+ +}
+ diff --git a/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json b/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..78e11442e2109f3aafc38c0d1af5eb149667c25a
++index 0000000..78e1144
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json
+ @@ -0,0 +1,12 @@
+@@ -56,7 +56,7 @@ index 0000000000000000000000000000000000000000..78e11442e2109f3aafc38c0d1af5eb14
+ +}
+ diff --git a/skills/ai-project-copilot/references/multi-interface-gateway.md b/skills/ai-project-copilot/references/multi-interface-gateway.md
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..9629d7845fc72cc4976679169eb7ff586fc5cdee
++index 0000000..35a49ae
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/references/multi-interface-gateway.md
+ @@ -0,0 +1,200 @@
+@@ -86,7 +86,7 @@ index 0000000000000000000000000000000000000000..9629d7845fc72cc4976679169eb7ff58
+ +
+ +- Do not expose arbitrary shell or executable parameters.
+ +- Keep merge, publish, deploy, delete, permission changes, and repository writes outside the gateway unless a separate explicitly reviewed write protocol is added later.
+-+- REST binds to `127.0.0.1` by default. A non-loopback bind is rejected unless a bearer token is present in `AIPC_API_KEY` (or the environment variable selected with `--api-key-env`).
+++- REST binds to `127.0.0.1` and rejects every plaintext non-loopback bind. For remote access, keep the process on loopback and place an authenticated TLS reverse proxy in front.
+ +- REST rejects requests carrying a browser `Origin` header; it is intended for trusted programs/agents, not arbitrary web pages.
+ +- MCP and REST restrict caller-supplied repository/file paths to configured `--allow-root` directories. If no root is supplied, the current working directory is the only allowed root.
+ +- Generic helper subprocesses receive a small runtime environment allowlist and do not inherit common cloud/model/repository credentials.
+@@ -192,16 +192,16 @@ index 0000000000000000000000000000000000000000..9629d7845fc72cc4976679169eb7ff58
+ +  }'
+ +```
+ +
+-+For a non-loopback bind, put the token only in the environment:
+++For authenticated remote access, keep the adapter on loopback and put the token only in the environment:
+ +
+ +```bash
+ +export AIPC_API_KEY='replace-with-a-long-random-secret'
+ +python scripts/project_copilot_api.py \
+-+  --host 0.0.0.0 \
+++  --host 127.0.0.1 \
+ +  --allow-root /srv/repos
+ +```
+ +
+-+Then send `Authorization: Bearer <token>`. Put TLS/reverse-proxy authentication in front of any internet-facing deployment; this preview server is a small adapter, not a full multi-tenant SaaS gateway.
+++Configure the TLS reverse proxy to forward only authenticated requests to this loopback listener, then send `Authorization: Bearer <token>`. The preview server is a small adapter, not a full multi-tenant SaaS gateway.
+ +
+ +## 4. MCP stdio server
+ +
+@@ -260,797 +260,9 @@ index 0000000000000000000000000000000000000000..9629d7845fc72cc4976679169eb7ff58
+ +4. Put an authenticated TLS reverse proxy in front before remote use.
+ +5. Add durable job/task storage only when long-running remote workloads require it.
+ +6. Add any write-capable operation as a separate reviewed protocol with explicit human confirmation; never broaden the generic gateway into arbitrary command execution.
+-diff --git a/skills/ai-project-copilot/scripts/__pycache__/project_copilot.cpython-313.pyc b/skills/ai-project-copilot/scripts/__pycache__/project_copilot.cpython-313.pyc
+-new file mode 100644
+-index 0000000000000000000000000000000000000000..5d5a633e1f2d33647103807ca73278f53ac009a2
+-GIT binary patch
+-literal 7583
+-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
+-
+-literal 0
+-HcmV?d00001
+-
+-diff --git a/skills/ai-project-copilot/scripts/__pycache__/project_copilot_api.cpython-313.pyc b/skills/ai-project-copilot/scripts/__pycache__/project_copilot_api.cpython-313.pyc
+-new file mode 100644
+-index 0000000000000000000000000000000000000000..4c75f908cb03ca818d1ae1fae5408d697b21c3b6
+-GIT binary patch
+-literal 15493
+-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
+-
+-literal 0
+-HcmV?d00001
+-
+-diff --git a/skills/ai-project-copilot/scripts/__pycache__/project_copilot_core.cpython-313.pyc b/skills/ai-project-copilot/scripts/__pycache__/project_copilot_core.cpython-313.pyc
+-new file mode 100644
+-index 0000000000000000000000000000000000000000..fd0d979db7a6b3592d24214414c35d80144d1c28
+-GIT binary patch
+-literal 38873
+-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
+-
+-literal 0
+-HcmV?d00001
+-
+-diff --git a/skills/ai-project-copilot/scripts/__pycache__/project_copilot_mcp.cpython-313.pyc b/skills/ai-project-copilot/scripts/__pycache__/project_copilot_mcp.cpython-313.pyc
+-new file mode 100644
+-index 0000000000000000000000000000000000000000..3bcb7b242c0fa3f2424732fc96d3d97f51ddcbb3
+-GIT binary patch
+-literal 13884
+-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
+-L!Bfc9)A|1kf^Gt%
+-
+-literal 0
+-HcmV?d00001
+-
+ diff --git a/skills/ai-project-copilot/scripts/project_copilot.py b/skills/ai-project-copilot/scripts/project_copilot.py
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..bfde3bf2a5812bc742daf5ebf54f9dfbaae23865
++index 0000000..bfde3bf
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/scripts/project_copilot.py
+ @@ -0,0 +1,135 @@
+@@ -1191,10 +403,10 @@ index 0000000000000000000000000000000000000000..bfde3bf2a5812bc742daf5ebf54f9dfb
+ +    raise SystemExit(main())
+ diff --git a/skills/ai-project-copilot/scripts/project_copilot_api.py b/skills/ai-project-copilot/scripts/project_copilot_api.py
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..5b15e7ee1ab642de836c06055e6495eee08ad3e9
++index 0000000..7a02319
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/scripts/project_copilot_api.py
+-@@ -0,0 +1,239 @@
++@@ -0,0 +1,268 @@
+ +#!/usr/bin/env python3
+ +"""Minimal dependency-free REST adapter for AI Project Copilot.
+ +
+@@ -1221,6 +433,31 @@ index 0000000000000000000000000000000000000000..5b15e7ee1ab642de836c06055e6495ee
+ +from project_copilot_core import CopilotEngine, CopilotError, ExecutionPolicy, invoke
+ +
+ +MAX_REQUEST_BYTES = 1024 * 1024
+++MAX_JSON_NESTING = 256
+++
+++
+++def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+++    depth = 0
+++    in_string = False
+++    escaped = False
+++    for char in text:
+++        if in_string:
+++            if escaped:
+++                escaped = False
+++            elif char == "\\":
+++                escaped = True
+++            elif char == '"':
+++                in_string = False
+++            continue
+++        if char == '"':
+++            in_string = True
+++        elif char in "[{":
+++            depth += 1
+++            if depth > maximum:
+++                return True
+++        elif char in "]}":
+++            depth = max(0, depth - 1)
+++    return False
+ +
+ +
+ +def _is_loopback(host: str) -> bool:
+@@ -1349,8 +586,12 @@ index 0000000000000000000000000000000000000000..5b15e7ee1ab642de836c06055e6495ee
+ +            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"status": "error", "error": "request body too large"})
+ +            return
+ +        try:
+-+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+-+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+++            text = self.rfile.read(length).decode("utf-8")
+++            if _json_nesting_exceeds(text):
+++                self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": "JSON nesting exceeds safe limit"})
+++                return
+++            body = json.loads(text)
+++        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+ +            self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": f"invalid JSON: {exc}"})
+ +            return
+ +        if not isinstance(body, dict):
+@@ -1393,9 +634,9 @@ index 0000000000000000000000000000000000000000..5b15e7ee1ab642de836c06055e6495ee
+ +    api_key = os.environ.get(args.api_key_env)
+ +    if api_key is not None and not api_key:
+ +        api_key = None
+-+    if not _is_loopback(args.host) and not api_key:
+++    if not _is_loopback(args.host):
+ +        print(
+-+            f"refusing to bind {args.host!r} without a bearer token in environment variable {args.api_key_env}",
+++            f"refusing plaintext non-loopback bind {args.host!r}; place the loopback server behind an authenticated TLS proxy",
+ +            file=sys.stderr,
+ +        )
+ +        return 2
+@@ -1436,7 +677,7 @@ index 0000000000000000000000000000000000000000..5b15e7ee1ab642de836c06055e6495ee
+ +    raise SystemExit(main())
+ diff --git a/skills/ai-project-copilot/scripts/project_copilot_core.py b/skills/ai-project-copilot/scripts/project_copilot_core.py
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..7224f3574d5147519363609c3c41300fb68a69c8
++index 0000000..7224f35
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/scripts/project_copilot_core.py
+ @@ -0,0 +1,760 @@
+@@ -2202,10 +1443,10 @@ index 0000000000000000000000000000000000000000..7224f3574d5147519363609c3c41300f
+ +    return engine.execute(capability, arguments)
+ diff --git a/skills/ai-project-copilot/scripts/project_copilot_mcp.py b/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..b69528ff1f38ca7e90484f902cc06b0ae13592b1
++index 0000000..fa06337
+ --- /dev/null
+ +++ b/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+-@@ -0,0 +1,261 @@
++@@ -0,0 +1,303 @@
+ +#!/usr/bin/env python3
+ +"""MCP stdio adapter for AI Project Copilot.
+ +
+@@ -2238,6 +1479,32 @@ index 0000000000000000000000000000000000000000..b69528ff1f38ca7e90484f902cc06b0a
+ +CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
+ +CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
+ +SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
+++MAX_MESSAGE_BYTES = 1024 * 1024
+++MAX_JSON_NESTING = 256
+++
+++
+++def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+++    depth = 0
+++    in_string = False
+++    escaped = False
+++    for char in text:
+++        if in_string:
+++            if escaped:
+++                escaped = False
+++            elif char == "\\":
+++                escaped = True
+++            elif char == '"':
+++                in_string = False
+++            continue
+++        if char == '"':
+++            in_string = True
+++        elif char in "[{":
+++            depth += 1
+++            if depth > maximum:
+++                return True
+++        elif char in "]}":
+++            depth = max(0, depth - 1)
+++    return False
+ +UNSUPPORTED_PROTOCOL_VERSION = -32022
+ +
+ +
+@@ -2422,17 +1689,33 @@ index 0000000000000000000000000000000000000000..b69528ff1f38ca7e90484f902cc06b0a
+ +
+ +
+ +def serve_stdio(adapter: MCPAdapter) -> int:
+-+    for raw in sys.stdin:
+-+        raw = raw.strip()
+++    while True:
+++        encoded = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
+++        if not encoded:
+++            break
+++        if len(encoded) > MAX_MESSAGE_BYTES:
+++            response = _error(None, -32600, "Invalid Request", "message exceeds size limit")
+++            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+++            sys.stdout.flush()
+++            continue
+++        try:
+++            raw = encoded.decode("utf-8").strip()
+++        except UnicodeDecodeError as exc:
+++            response = _error(None, -32700, "Parse error", str(exc))
+++            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+++            sys.stdout.flush()
+++            continue
+ +        if not raw:
+ +            continue
+ +        try:
+++            if _json_nesting_exceeds(raw):
+++                raise ValueError("JSON nesting exceeds safe limit")
+ +            message = json.loads(raw)
+ +            if not isinstance(message, dict):
+ +                response = _error(None, -32600, "Invalid Request")
+ +            else:
+ +                response = adapter.handle(message)
+-+        except json.JSONDecodeError as exc:
+++        except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+ +            response = _error(None, -32700, "Parse error", str(exc))
+ +        except Exception as exc:  # Fail closed at the protocol boundary; log detail to stderr.
+ +            print(f"[aipc-mcp] internal error: {exc}", file=sys.stderr)
+@@ -2467,191 +1750,9 @@ index 0000000000000000000000000000000000000000..b69528ff1f38ca7e90484f902cc06b0a
+ +
+ +if __name__ == "__main__":
+ +    raise SystemExit(main())
+-diff --git a/tests/__pycache__/test_multi_interface_gateway.cpython-313.pyc b/tests/__pycache__/test_multi_interface_gateway.cpython-313.pyc
+-new file mode 100644
+-index 0000000000000000000000000000000000000000..0712f013f4694495ec11fbaec3de04033625a5b2
+-GIT binary patch
+-literal 19718
+-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
+-
+-literal 0
+-HcmV?d00001
+-
+ diff --git a/tests/test_multi_interface_gateway.py b/tests/test_multi_interface_gateway.py
+ new file mode 100644
+-index 0000000000000000000000000000000000000000..c8368bf86997d474f5e4dfb3975432c1c8c0ad5a
++index 0000000..c8368bf
+ --- /dev/null
+ +++ b/tests/test_multi_interface_gateway.py
+ @@ -0,0 +1,283 @@
+diff --git a/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py b/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py
+index 313b059..76eaec3 100755
+--- a/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py
++++ b/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py
+@@ -72,6 +72,9 @@ def validate_repo(repo: Path) -> Path:
+     repo = repo.expanduser().resolve()
+     skill = repo / SKILL_REL
+     scripts = repo / "skills/ai-project-copilot/scripts"
++    for candidate in (repo / "skills", repo / "skills/ai-project-copilot", skill, scripts):
++        if candidate.is_symlink():
++            raise SystemExit(f"repository target contains a symlink component: {candidate.relative_to(repo)}")
+     if not skill.is_file() or not scripts.is_dir():
+         raise SystemExit(f"not an AI Project Copilot repository root: {repo}")
+     text = skill.read_text(encoding="utf-8")
+@@ -87,12 +90,30 @@ def _safe_rel(value: str) -> Path:
+     return path
+ 
+ 
++def _safe_target(repo: Path, rel: Path) -> Path:
++    """Return a repository-confined target and reject every symlink component."""
++    if rel.is_absolute() or ".." in rel.parts or not rel.parts:
++        raise SystemExit(f"unsafe patch target: {rel}")
++    candidate = repo / rel
++    current = repo
++    for part in rel.parts:
++        current = current / part
++        if current.is_symlink():
++            raise SystemExit(f"patch target contains a symlink component: {rel}")
++    resolved = candidate.resolve(strict=False)
++    try:
++        resolved.relative_to(repo)
++    except ValueError as exc:
++        raise SystemExit(f"patch target escapes repository: {rel}") from exc
++    return candidate
++
++
+ def _state_dir(repo: Path) -> Path:
+     return repo / STATE_REL
+ 
+ 
+ def _read_receipt(repo: Path) -> dict[str, object]:
+-    path = _state_dir(repo) / RECEIPT_NAME
++    path = _safe_target(repo, STATE_REL / RECEIPT_NAME)
+     if not path.is_file():
+         raise SystemExit(
+             f"no installer receipt found at {path}; rollback is only automatic for changes applied by this preview.2 installer"
+@@ -111,7 +132,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
+     file_plan: list[dict[str, str]] = []
+     for source in payload_files():
+         rel = source.relative_to(PAYLOAD)
+-        target = repo / rel
++        target = _safe_target(repo, rel)
+         source_hash = sha256(source)
+         if target.exists():
+             if not target.is_file():
+@@ -136,7 +157,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
+             changes.append(f"add {rel.as_posix()}")
+             file_plan.append({"path": rel.as_posix(), "action": "added", "payload_sha256": source_hash})
+ 
+-    skill = repo / SKILL_REL
++    skill = _safe_target(repo, SKILL_REL)
+     original_skill = skill.read_text(encoding="utf-8")
+     skill_inserted = False
+     if INSERT.strip() in original_skill:
+@@ -151,7 +172,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
+ 
+ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+     verify_payload_integrity()
+-    state_dir = _state_dir(repo)
++    state_dir = _safe_target(repo, STATE_REL)
+     changes, file_plan, skill_inserted, original_skill = _apply_plan(repo, force=force)
+     if dry_run:
+         return changes
+@@ -163,7 +184,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+             raise SystemExit(f"existing installer state found at {state_dir}; roll back it before reapplying")
+         return changes
+ 
+-    skill = repo / SKILL_REL
++    skill = _safe_target(repo, SKILL_REL)
+     state_parent = state_dir.parent
+     state_parent_existed = state_parent.exists()
+     state_parent.mkdir(parents=True, exist_ok=True)
+@@ -176,7 +197,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+         for item in file_plan:
+             rel = _safe_rel(item["path"])
+             if item["action"] == "replaced":
+-                target = repo / rel
++                target = _safe_target(repo, rel)
+                 backup = temp_state / "backups" / rel
+                 backup.parent.mkdir(parents=True, exist_ok=True)
+                 shutil.copy2(target, backup)
+@@ -186,7 +207,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+                 continue
+             rel = _safe_rel(item["path"])
+             source = PAYLOAD / rel
+-            target = repo / rel
++            target = _safe_target(repo, rel)
+             target.parent.mkdir(parents=True, exist_ok=True)
+             shutil.copy2(source, target)
+ 
+@@ -205,7 +226,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+     except BaseException:
+         for item in reversed(file_plan):
+             rel = _safe_rel(item["path"])
+-            target = repo / rel
++            target = _safe_target(repo, rel)
+             if item["action"] == "added":
+                 if target.is_file():
+                     target.unlink()
+@@ -240,7 +261,7 @@ def _remove_gateway_section(text: str, *, force: bool) -> str:
+ def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tuple[list[str], list[dict[str, str]], str]:
+     changes: list[str] = []
+     operations: list[dict[str, str]] = []
+-    state_dir = _state_dir(repo)
++    state_dir = _safe_target(repo, STATE_REL)
+     raw_files = receipt.get("files")
+     assert isinstance(raw_files, list)
+     for raw in raw_files:
+@@ -248,7 +269,7 @@ def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tu
+             raise SystemExit("malformed file entry in installer receipt")
+         item = {str(k): str(v) for k, v in raw.items()}
+         rel = _safe_rel(item["path"])
+-        target = repo / rel
++        target = _safe_target(repo, rel)
+         action = item["action"]
+         if action == "preexisting_same":
+             changes.append(f"leave pre-existing {rel.as_posix()}")
+@@ -269,7 +290,7 @@ def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tu
+         changes.append(("remove " if action == "added" else "restore original ") + rel.as_posix())
+         operations.append(item)
+ 
+-    skill = repo / SKILL_REL
++    skill = _safe_target(repo, SKILL_REL)
+     skill_text = skill.read_text(encoding="utf-8")
+     restored_skill = skill_text
+     if receipt.get("skill_inserted") is True:
+@@ -286,15 +307,15 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+     if dry_run:
+         return changes
+ 
+-    state_dir = _state_dir(repo)
+-    skill = repo / SKILL_REL
++    state_dir = _safe_target(repo, STATE_REL)
++    skill = _safe_target(repo, SKILL_REL)
+     current_skill = skill.read_text(encoding="utf-8")
+     with tempfile.TemporaryDirectory(prefix="aipc-rollback-txn-") as temp:
+         txn = Path(temp)
+         (txn / "skill.md").write_text(current_skill, encoding="utf-8")
+         for item in operations:
+             rel = _safe_rel(item["path"])
+-            target = repo / rel
++            target = _safe_target(repo, rel)
+             if target.is_file():
+                 saved = txn / "current" / rel
+                 saved.parent.mkdir(parents=True, exist_ok=True)
+@@ -302,7 +323,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+         try:
+             for item in operations:
+                 rel = _safe_rel(item["path"])
+-                target = repo / rel
++                target = _safe_target(repo, rel)
+                 if item["action"] == "added":
+                     if target.is_file():
+                         target.unlink()
+@@ -315,7 +336,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+         except BaseException:
+             for item in operations:
+                 rel = _safe_rel(item["path"])
+-                target = repo / rel
++                target = _safe_target(repo, rel)
+                 saved = txn / "current" / rel
+                 if saved.is_file():
+                     target.parent.mkdir(parents=True, exist_ok=True)
+@@ -328,7 +349,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+     shutil.rmtree(state_dir)
+     for item in operations:
+         rel = _safe_rel(item["path"])
+-        parent = (repo / rel).parent
++        parent = _safe_target(repo, rel).parent
+         while parent != repo and parent.exists() and parent != state_dir.parent and not any(parent.iterdir()):
+             parent.rmdir()
+             parent = parent.parent
+@@ -339,8 +360,17 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
+ 
+ 
+ def run_tests(repo: Path) -> int:
+-    command = [sys.executable, "-m", "unittest", "-v", "tests/test_multi_interface_gateway.py"]
+-    return subprocess.run(command, cwd=repo, check=False).returncode
++    commands = [
++        [sys.executable, "tools/validate_skill.py", "skills/ai-project-copilot"],
++        [sys.executable, "skills/ai-project-copilot/scripts/run_skill_evals.py", "--format", "json"],
++        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"],
++        [sys.executable, "-m", "compileall", "-q", "tools", "tests", "skills/ai-project-copilot/scripts"],
++    ]
++    for command in commands:
++        result = subprocess.run(command, cwd=repo, check=False)
++        if result.returncode:
++            return result.returncode
++    return 0
+ 
+ 
+ def main(argv: list[str] | None = None) -> int:
+@@ -360,7 +390,11 @@ def main(argv: list[str] | None = None) -> int:
+     for item in changes:
+         print(item)
+     if args.run_tests and not args.rollback and not args.dry_run:
+-        return run_tests(repo)
++        result = run_tests(repo)
++        if result:
++            print("verification failed; rolling back the preview installation", file=sys.stderr)
++            rollback(repo, dry_run=False, force=False)
++        return result
+     return 0
+ 
+ 
+diff --git a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/references/multi-interface-gateway.md b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/references/multi-interface-gateway.md
+index 9629d78..35a49ae 100644
+--- a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/references/multi-interface-gateway.md
++++ b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/references/multi-interface-gateway.md
+@@ -24,7 +24,7 @@ Treat every adapter as a capability boundary.
+ 
+ - Do not expose arbitrary shell or executable parameters.
+ - Keep merge, publish, deploy, delete, permission changes, and repository writes outside the gateway unless a separate explicitly reviewed write protocol is added later.
+-- REST binds to `127.0.0.1` by default. A non-loopback bind is rejected unless a bearer token is present in `AIPC_API_KEY` (or the environment variable selected with `--api-key-env`).
++- REST binds to `127.0.0.1` and rejects every plaintext non-loopback bind. For remote access, keep the process on loopback and place an authenticated TLS reverse proxy in front.
+ - REST rejects requests carrying a browser `Origin` header; it is intended for trusted programs/agents, not arbitrary web pages.
+ - MCP and REST restrict caller-supplied repository/file paths to configured `--allow-root` directories. If no root is supplied, the current working directory is the only allowed root.
+ - Generic helper subprocesses receive a small runtime environment allowlist and do not inherit common cloud/model/repository credentials.
+@@ -130,16 +130,16 @@ curl -sS http://127.0.0.1:8787/v1/run \
+   }'
+ ```
+ 
+-For a non-loopback bind, put the token only in the environment:
++For authenticated remote access, keep the adapter on loopback and put the token only in the environment:
+ 
+ ```bash
+ export AIPC_API_KEY='replace-with-a-long-random-secret'
+ python scripts/project_copilot_api.py \
+-  --host 0.0.0.0 \
++  --host 127.0.0.1 \
+   --allow-root /srv/repos
+ ```
+ 
+-Then send `Authorization: Bearer <token>`. Put TLS/reverse-proxy authentication in front of any internet-facing deployment; this preview server is a small adapter, not a full multi-tenant SaaS gateway.
++Configure the TLS reverse proxy to forward only authenticated requests to this loopback listener, then send `Authorization: Bearer <token>`. The preview server is a small adapter, not a full multi-tenant SaaS gateway.
+ 
+ ## 4. MCP stdio server
+ 
+diff --git a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py
+index 5b15e7e..7a02319 100644
+--- a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py
++++ b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py
+@@ -24,6 +24,31 @@ from typing import Any
+ from project_copilot_core import CopilotEngine, CopilotError, ExecutionPolicy, invoke
+ 
+ MAX_REQUEST_BYTES = 1024 * 1024
++MAX_JSON_NESTING = 256
++
++
++def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
++    depth = 0
++    in_string = False
++    escaped = False
++    for char in text:
++        if in_string:
++            if escaped:
++                escaped = False
++            elif char == "\\":
++                escaped = True
++            elif char == '"':
++                in_string = False
++            continue
++        if char == '"':
++            in_string = True
++        elif char in "[{":
++            depth += 1
++            if depth > maximum:
++                return True
++        elif char in "]}":
++            depth = max(0, depth - 1)
++    return False
+ 
+ 
+ def _is_loopback(host: str) -> bool:
+@@ -152,8 +177,12 @@ class CopilotHandler(BaseHTTPRequestHandler):
+             self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"status": "error", "error": "request body too large"})
+             return
+         try:
+-            body = json.loads(self.rfile.read(length).decode("utf-8"))
+-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
++            text = self.rfile.read(length).decode("utf-8")
++            if _json_nesting_exceeds(text):
++                self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": "JSON nesting exceeds safe limit"})
++                return
++            body = json.loads(text)
++        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+             self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": f"invalid JSON: {exc}"})
+             return
+         if not isinstance(body, dict):
+@@ -196,9 +225,9 @@ def main(argv: list[str] | None = None) -> int:
+     api_key = os.environ.get(args.api_key_env)
+     if api_key is not None and not api_key:
+         api_key = None
+-    if not _is_loopback(args.host) and not api_key:
++    if not _is_loopback(args.host):
+         print(
+-            f"refusing to bind {args.host!r} without a bearer token in environment variable {args.api_key_env}",
++            f"refusing plaintext non-loopback bind {args.host!r}; place the loopback server behind an authenticated TLS proxy",
+             file=sys.stderr,
+         )
+         return 2
+diff --git a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+index b69528f..fa06337 100644
+--- a/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
++++ b/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+@@ -30,6 +30,32 @@ PROTOCOL_META_KEY = "io.modelcontextprotocol/protocolVersion"
+ CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
+ CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
+ SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
++MAX_MESSAGE_BYTES = 1024 * 1024
++MAX_JSON_NESTING = 256
++
++
++def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
++    depth = 0
++    in_string = False
++    escaped = False
++    for char in text:
++        if in_string:
++            if escaped:
++                escaped = False
++            elif char == "\\":
++                escaped = True
++            elif char == '"':
++                in_string = False
++            continue
++        if char == '"':
++            in_string = True
++        elif char in "[{":
++            depth += 1
++            if depth > maximum:
++                return True
++        elif char in "]}":
++            depth = max(0, depth - 1)
++    return False
+ UNSUPPORTED_PROTOCOL_VERSION = -32022
+ 
+ 
+@@ -214,17 +240,33 @@ def _parser() -> argparse.ArgumentParser:
+ 
+ 
+ def serve_stdio(adapter: MCPAdapter) -> int:
+-    for raw in sys.stdin:
+-        raw = raw.strip()
++    while True:
++        encoded = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
++        if not encoded:
++            break
++        if len(encoded) > MAX_MESSAGE_BYTES:
++            response = _error(None, -32600, "Invalid Request", "message exceeds size limit")
++            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
++            sys.stdout.flush()
++            continue
++        try:
++            raw = encoded.decode("utf-8").strip()
++        except UnicodeDecodeError as exc:
++            response = _error(None, -32700, "Parse error", str(exc))
++            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
++            sys.stdout.flush()
++            continue
+         if not raw:
+             continue
+         try:
++            if _json_nesting_exceeds(raw):
++                raise ValueError("JSON nesting exceeds safe limit")
+             message = json.loads(raw)
+             if not isinstance(message, dict):
+                 response = _error(None, -32600, "Invalid Request")
+             else:
+                 response = adapter.handle(message)
+-        except json.JSONDecodeError as exc:
++        except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+             response = _error(None, -32700, "Parse error", str(exc))
+         except Exception as exc:  # Fail closed at the protocol boundary; log detail to stderr.
+             print(f"[aipc-mcp] internal error: {exc}", file=sys.stderr)
+diff --git a/skills/ai-project-copilot/scripts/model_budget_gateway.py b/skills/ai-project-copilot/scripts/model_budget_gateway.py
+index eff51d0..2ee79d6 100644
+--- a/skills/ai-project-copilot/scripts/model_budget_gateway.py
++++ b/skills/ai-project-copilot/scripts/model_budget_gateway.py
+@@ -43,6 +43,52 @@ MAX_RESPONSE_BYTES = 25 * 1024 * 1024
+ MAX_SSE_EVENT_BYTES = 10 * 1024 * 1024
+ MAX_QUALITY_CAPTURE_CHARS = 8_000
+ MAX_QUALITY_CAPTURE_BYTES = MAX_QUALITY_CAPTURE_CHARS * 4
++FIX4_PROVIDER_JSON_HARDENING = True
++FIX5_GATEWAY_JSON_HARDENING = True
++FIX6_GATEWAY_JSON_HARDENING = True
++MAX_JSON_NESTING = 256
++
++
++def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
++    depth = 0
++    in_string = False
++    escaped = False
++    for char in text:
++        if in_string:
++            if escaped:
++                escaped = False
++            elif char == "\\":
++                escaped = True
++            elif char == '"':
++                in_string = False
++            continue
++        if char == '"':
++            in_string = True
++        elif char in "[{":
++            depth += 1
++            if depth > maximum:
++                return True
++        elif char in "]}":
++            depth = max(0, depth - 1)
++    return False
++
++
++def _json_value_nesting_exceeds(value: object, maximum: int = MAX_JSON_NESTING) -> bool:
++    """Check already-decoded JSON-like values without recursive Python calls."""
++    stack: list[tuple[object, int]] = [(value, 0)]
++    while stack:
++        current, depth = stack.pop()
++        if isinstance(current, Mapping):
++            next_depth = depth + 1
++            if next_depth > maximum:
++                return True
++            stack.extend((item, next_depth) for item in current.values())
++        elif isinstance(current, (list, tuple)):
++            next_depth = depth + 1
++            if next_depth > maximum:
++                return True
++            stack.extend((item, next_depth) for item in current)
++    return False
+ COUNT_PAYLOAD_FIELDS = frozenset(
+     {
+         "input",
+@@ -238,6 +284,10 @@ class _LeaseRenewer:
+ 
+ 
+ def _canonical_json_bytes(value: object) -> bytes:
++    if _json_value_nesting_exceeds(value):
++        raise ValueError(
++            f"request must be canonical JSON: nesting exceeds the safe limit of {MAX_JSON_NESTING}"
++        )
+     try:
+         return json.dumps(
+             value,
+@@ -246,7 +296,7 @@ def _canonical_json_bytes(value: object) -> bytes:
+             separators=(",", ":"),
+             allow_nan=False,
+         ).encode("utf-8")
+-    except (TypeError, ValueError) as exc:
++    except (TypeError, ValueError, RecursionError) as exc:
+         raise ValueError(f"request must be canonical JSON: {exc}") from exc
+ 
+ 
+@@ -424,9 +474,9 @@ def _safe_provider_error_payload(data: bytes) -> str:
+     if not data:
+         return "provider returned no error body"
+     try:
+-        payload = json.loads(data.decode("utf-8"))
+-    except (UnicodeError, json.JSONDecodeError):
+-        return "provider returned a non-JSON error body"
++        payload = _load_provider_json(data, "provider error body", request_may_have_started=True)
++    except ProviderError:
++        return "provider returned a non-JSON or unsafe error body"
+     if isinstance(payload, Mapping):
+         error = payload.get("error")
+         if isinstance(error, Mapping) and isinstance(error.get("message"), str):
+@@ -434,6 +484,22 @@ def _safe_provider_error_payload(data: bytes) -> str:
+     return "provider returned an unrecognized error body"
+ 
+ 
++def _load_provider_json(data: bytes, label: str, *, request_may_have_started: bool) -> object:
++    try:
++        text = data.decode("utf-8")
++    except UnicodeError as exc:
++        raise ProviderError(f"{label} was not valid UTF-8", request_may_have_started=request_may_have_started) from exc
++    if _json_nesting_exceeds(text):
++        raise ProviderError(
++            f"{label} nesting exceeds the safe limit of {MAX_JSON_NESTING}",
++            request_may_have_started=request_may_have_started,
++        )
++    try:
++        return json.loads(text)
++    except (json.JSONDecodeError, RecursionError) as exc:
++        raise ProviderError(f"{label} was invalid JSON: {exc}", request_may_have_started=request_may_have_started) from exc
++
++
+ def iter_sse_events(stream: BinaryIO) -> Iterable[dict[str, Any]]:
+     """Parse data-only SSE events with bounded memory and strict JSON objects."""
+     data_lines: list[bytes] = []
+@@ -467,13 +533,7 @@ def iter_sse_events(stream: BinaryIO) -> Iterable[dict[str, Any]]:
+             total = 0
+             if body.strip() == b"[DONE]":
+                 break
+-            try:
+-                event = json.loads(body.decode("utf-8"))
+-            except (UnicodeError, json.JSONDecodeError) as exc:
+-                raise ProviderError(
+-                    f"provider returned malformed SSE JSON: {exc}",
+-                    request_may_have_started=True,
+-                ) from exc
++            event = _load_provider_json(body, "provider SSE event", request_may_have_started=True)
+             if not isinstance(event, dict):
+                 raise ProviderError(
+                     "provider SSE data must be a JSON object",
+@@ -600,13 +660,7 @@ class OpenAIResponsesClient:
+         with self._open(request) as response:
+             data = _read_limited(response, MAX_RESPONSE_BYTES)
+         latency = (self.clock() - started) * 1_000
+-        try:
+-            result = json.loads(data.decode("utf-8"))
+-        except (UnicodeError, json.JSONDecodeError) as exc:
+-            raise ProviderError(
+-                f"token count response was invalid JSON: {exc}",
+-                request_may_have_started=False,
+-            ) from exc
++        result = _load_provider_json(data, "token count response", request_may_have_started=False)
+         if not isinstance(result, Mapping):
+             raise ProviderError(
+                 "token count response must be an object",
+@@ -920,7 +974,10 @@ def load_quality_policy(path: Path | None) -> QualityPolicy | None:
+     if len(data) > 1_000_000:
+         raise ValueError("quality policy exceeds 1 MB")
+     try:
+-        payload = json.loads(data.decode("utf-8"))
++        text = data.decode("utf-8")
++        if _json_nesting_exceeds(text):
++            raise ValueError(f"quality policy nesting exceeds the safe limit of {MAX_JSON_NESTING}")
++        payload = json.loads(text)
+     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+         raise ValueError(f"quality policy is invalid JSON: {exc}") from exc
+     if not isinstance(payload, Mapping):
+@@ -1405,7 +1462,10 @@ def _read_json(path: Path, label: str) -> Mapping[str, Any]:
+     if len(data) > MAX_REQUEST_BYTES:
+         raise ValueError(f"{label} exceeds {MAX_REQUEST_BYTES} bytes")
+     try:
+-        payload = json.loads(data.decode("utf-8"))
++        text = data.decode("utf-8")
++        if _json_nesting_exceeds(text):
++            raise ValueError(f"{label} nesting exceeds the safe limit of {MAX_JSON_NESTING}")
++        payload = json.loads(text)
+     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+         raise ValueError(f"{label} is invalid JSON: {exc}") from exc
+     if not isinstance(payload, Mapping):
+@@ -1520,7 +1580,7 @@ def main(argv: Sequence[str] | None = None) -> int:
+             sys.stderr.write("\n")
+         _emit(result, args.format)
+         return 0 if result.final_status == "success" else 3
+-    except (ValueError, GatewayError, OSError) as exc:
++    except (ValueError, GatewayError, OSError, RecursionError) as exc:
+         print(f"error: {exc}", file=sys.stderr)
+         return 2
+ 
+diff --git a/tests/test_audit_remediation.py b/tests/test_audit_remediation.py
+new file mode 100644
+index 0000000..a2d5587
+--- /dev/null
++++ b/tests/test_audit_remediation.py
+@@ -0,0 +1,64 @@
++from __future__ import annotations
++
++import importlib.util
++import io
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++
++
++ROOT = Path(__file__).resolve().parents[1]
++SCRIPTS = ROOT / "skills" / "ai-project-copilot" / "scripts"
++PREVIEW = ROOT / "ai-project-copilot-multi-interface-upgrade"
++
++
++def load(name: str, path: Path):
++    spec = importlib.util.spec_from_file_location(name, path)
++    assert spec is not None and spec.loader is not None
++    module = importlib.util.module_from_spec(spec)
++    sys.modules[name] = module
++    spec.loader.exec_module(module)
++    return module
++
++
++class AuditRemediationTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls) -> None:
++        sys.path.insert(0, str(SCRIPTS))
++        cls.gateway = load("audit_gateway", SCRIPTS / "model_budget_gateway.py")
++        payload_scripts = PREVIEW / "payload/skills/ai-project-copilot/scripts"
++        sys.path.insert(0, str(payload_scripts))
++        cls.preview_api = load("audit_preview_api", payload_scripts / "project_copilot_api.py")
++        cls.preview_mcp = load("audit_preview_mcp", payload_scripts / "project_copilot_mcp.py")
++        cls.installer = load("audit_preview_installer", PREVIEW / "apply_multi_interface_patch.py")
++
++    def test_release_rebuild_uses_distinct_output(self) -> None:
++        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
++        self.assertIn("--output dist/second.skill.zip", workflow)
++        self.assertIn("cmp dist/first.skill.zip dist/second.skill.zip", workflow)
++
++    def test_gateway_rejects_deep_provider_json_without_recursion_error(self) -> None:
++        raw = b"[" * 10_000 + b"0" + b"]" * 10_000
++        self.assertIn("unsafe", self.gateway._safe_provider_error_payload(raw))
++        with self.assertRaises(self.gateway.ProviderError):
++            next(self.gateway.iter_sse_events(io.BytesIO(b"data: " + raw + b"\n\n")))
++
++    def test_preview_json_boundaries_reject_deep_messages(self) -> None:
++        deep = "[" * 300 + "0" + "]" * 300
++        self.assertTrue(self.preview_api._json_nesting_exceeds(deep))
++        self.assertTrue(self.preview_mcp._json_nesting_exceeds(deep))
++
++    def test_preview_installer_rejects_symlinked_target_parent(self) -> None:
++        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
++            repo = Path(temp)
++            skill = repo / "skills/ai-project-copilot"
++            skill.mkdir(parents=True)
++            (skill / "SKILL.md").write_text("# AI Project Copilot 2.1\n\n## Capability lanes\n", encoding="utf-8")
++            (skill / "scripts").symlink_to(Path(outside), target_is_directory=True)
++            with self.assertRaisesRegex(SystemExit, "symlink"):
++                self.installer.validate_repo(repo)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_fix6_gateway_hardening.py b/tests/test_fix6_gateway_hardening.py
+new file mode 100644
+index 0000000..25da0cb
+--- /dev/null
++++ b/tests/test_fix6_gateway_hardening.py
+@@ -0,0 +1,126 @@
++from __future__ import annotations
++
++import importlib.util
++import io
++import json
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++SCRIPTS = ROOT / "skills" / "ai-project-copilot" / "scripts"
++GATEWAY = SCRIPTS / "model_budget_gateway.py"
++
++
++def load_gateway():
++    original = list(sys.path)
++    sys.path.insert(0, str(SCRIPTS))
++    try:
++        spec = importlib.util.spec_from_file_location("fix6_real_gateway", GATEWAY)
++        assert spec is not None and spec.loader is not None
++        module = importlib.util.module_from_spec(spec)
++        sys.modules[spec.name] = module
++        spec.loader.exec_module(module)
++        return module
++    finally:
++        sys.path[:] = original
++
++
++class FakeResponse(io.BytesIO):
++    headers: dict[str, str] = {}
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, exc_type, exc, traceback):
++        self.close()
++        return False
++
++
++class GatewayJSONHardeningTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.mod = load_gateway()
++
++    def test_real_gateway_contains_complete_fix(self):
++        self.assertTrue(self.mod.FIX4_PROVIDER_JSON_HARDENING)
++        self.assertTrue(self.mod.FIX5_GATEWAY_JSON_HARDENING)
++        self.assertTrue(self.mod.FIX6_GATEWAY_JSON_HARDENING)
++        self.assertEqual(self.mod.MAX_JSON_NESTING, 256)
++
++    def test_depth_scanner_ignores_brackets_and_escapes_inside_strings(self):
++        text = json.dumps({"value": "[" * 2000 + "{" * 2000 + r'\\\"[]{}'})
++        self.assertFalse(self.mod._json_nesting_exceeds(text))
++
++    def test_provider_loader_rejects_deep_json_as_provider_error(self):
++        payload = ("[" * 300 + "0" + "]" * 300).encode("utf-8")
++        with self.assertRaisesRegex(self.mod.ProviderError, "nesting"):
++            self.mod._load_provider_json(
++                payload,
++                "test provider payload",
++                request_may_have_started=True,
++            )
++
++    def test_http_error_body_fails_closed(self):
++        payload = ("[" * 300 + "0" + "]" * 300).encode("utf-8")
++        self.assertEqual(
++            self.mod._safe_provider_error_payload(payload),
++            "provider returned a non-JSON or unsafe error body",
++        )
++
++    def test_sse_deep_event_is_controlled_provider_error(self):
++        body = ("[" * 300 + "0" + "]" * 300).encode("utf-8")
++        stream = FakeResponse(b"data: " + body + b"\n\n")
++        with self.assertRaisesRegex(self.mod.ProviderError, "nesting"):
++            list(self.mod.iter_sse_events(stream))
++
++    def test_token_count_deep_json_is_controlled_provider_error(self):
++        body = ("[" * 300 + "0" + "]" * 300).encode("utf-8")
++
++        def opener(request, timeout):
++            return FakeResponse(body)
++
++        client = self.mod.OpenAIResponsesClient(
++            "test-key",
++            opener=opener,
++            clock=lambda: 1.0,
++        )
++        with self.assertRaisesRegex(self.mod.ProviderError, "nesting"):
++            client.count_input_tokens({"model": "test-model", "input": "hello"})
++
++    def test_local_request_deep_json_is_rejected_before_parser(self):
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / "request.json"
++            path.write_text("[" * 300 + "0" + "]" * 300, encoding="utf-8")
++            with self.assertRaisesRegex(ValueError, "nesting"):
++                self.mod._read_json(path, "request")
++
++    def test_quality_policy_deep_json_is_rejected_before_parser(self):
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / "quality.json"
++            path.write_text("[" * 300 + "0" + "]" * 300, encoding="utf-8")
++            with self.assertRaisesRegex(ValueError, "nesting"):
++                self.mod.load_quality_policy(path)
++
++    def test_normal_provider_json_still_parses(self):
++        value = self.mod._load_provider_json(
++            b'{"input_tokens": 7}',
++            "token count response",
++            request_may_have_started=False,
++        )
++        self.assertEqual(value, {"input_tokens": 7})
++
++    def test_canonical_json_converts_recursion_to_value_error(self):
++        value = []
++        cursor = value
++        for _ in range(1500):
++            child = []
++            cursor.append(child)
++            cursor = child
++        with self.assertRaisesRegex(ValueError, "canonical JSON"):
++            self.mod._canonical_json_bytes(value)
++
++
++if __name__ == "__main__":
++    unittest.main()
