@@ -2,7 +2,7 @@
 
 All notable changes to AI Project Copilot are documented here.
 
-## [Unreleased]
+## [2.1.1] - 2026-08-24
 
 ### Fixed
 
@@ -13,6 +13,10 @@ All notable changes to AI Project Copilot are documented here.
 - CI now exercises preview gateway/installer tests and repository integrity checks.
 - preview output-capture coverage now accepts platform-specific newline byte counts while retaining the bounded-capture and full-drain guarantees.
 - preview installer confinement now handles non-existent state paths consistently on Windows and macOS while continuing to reject traversal, drive-qualified, and symlinked targets.
+
+### Changed
+
+- added a maintainer repository map that defines the boundary between canonical Skill source, historical patch assets, generated outputs, verification, and release steps; this prevents accidental cleanup of compatibility artifacts.
 
 ## [2.1.0] - 2026-08-14
 

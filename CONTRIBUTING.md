@@ -32,6 +32,13 @@ python benchmarks/run_context_efficiency.py --repeats 7
 
 Efficiency changes must report the same task/fixture before and after. Do not convert character/path proxies into claimed model-token savings unless real client/API usage telemetry was collected.
 
+## Repository map and asset boundaries
+
+Read [`docs/repository-map.md`](docs/repository-map.md) before moving, deleting,
+or regenerating files. In particular, the root-level patch bundles and their
+checksum manifests are maintained compatibility/recovery assets, not disposable
+build output.
+
 ## Adding a blueprint
 
 Update both the structured catalog and its human-readable reference:

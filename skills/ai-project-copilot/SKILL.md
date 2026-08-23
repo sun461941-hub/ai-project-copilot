@@ -4,10 +4,10 @@ description: Use this skill to turn an AI idea or existing repository into a cre
 license: MIT
 metadata:
   author: sun461941-hub
-  version: "2.1.0"
+  version: "2.1.1"
 ---
 
-# AI Project Copilot 2.1
+# AI Project Copilot 2.1.1
 
 ## Mission
 
