@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import tempfile
 import threading
@@ -157,7 +158,9 @@ class MultiInterfaceGatewayTests(unittest.TestCase):
         item = result["results"][0]
         self.assertTrue(item["stdout_truncated"])
         self.assertLess(len(item["stdout"].encode("utf-8")), 1400)
-        self.assertIn("10000001 bytes", item["stdout"])
+        match = re.search(r"of (?P<total>\d+) bytes\]$", item["stdout"])
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group("total")), 10_000_001)
 
     def test_goal_orchestrator_executes_review_and_security(self) -> None:
         result = invoke(self.engine, "copilot_run", {"goal": "review this change for security", "repo": str(self.repo)})

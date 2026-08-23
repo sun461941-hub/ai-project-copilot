@@ -33,8 +33,9 @@ This roadmap describes intended directions, not promises or compatibility guaran
 - executable structural/deterministic Skill eval runner;
 - official Skill frontmatter compatibility and targeted context/security fixes.
 
-## v2.2 — Connected GitHub evidence adapters
+## v2.2 — Multi-interface preview + connected evidence adapters
 
+- graduate the reviewed CLI/REST/MCP preview into the installable Skill only after security and compatibility gates pass;
 - normalized read-only import for issue/PR/release/workflow exports;
 - compare local deterministic reports with GitHub-native status evidence;
 - contributor and maintenance trend snapshots from user-authorized data;

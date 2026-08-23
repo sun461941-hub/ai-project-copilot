@@ -72,6 +72,9 @@ def validate_repo(repo: Path) -> Path:
     repo = repo.expanduser().resolve()
     skill = repo / SKILL_REL
     scripts = repo / "skills/ai-project-copilot/scripts"
+    for candidate in (repo / "skills", repo / "skills/ai-project-copilot", skill, scripts):
+        if candidate.is_symlink():
+            raise SystemExit(f"repository target contains a symlink component: {candidate.relative_to(repo)}")
     if not skill.is_file() or not scripts.is_dir():
         raise SystemExit(f"not an AI Project Copilot repository root: {repo}")
     text = skill.read_text(encoding="utf-8")
@@ -87,12 +90,30 @@ def _safe_rel(value: str) -> Path:
     return path
 
 
+def _safe_target(repo: Path, rel: Path) -> Path:
+    """Return a repository-confined target and reject every symlink component."""
+    if rel.is_absolute() or ".." in rel.parts or not rel.parts:
+        raise SystemExit(f"unsafe patch target: {rel}")
+    candidate = repo / rel
+    current = repo
+    for part in rel.parts:
+        current = current / part
+        if current.is_symlink():
+            raise SystemExit(f"patch target contains a symlink component: {rel}")
+    resolved = candidate.resolve(strict=False)
+    try:
+        resolved.relative_to(repo)
+    except ValueError as exc:
+        raise SystemExit(f"patch target escapes repository: {rel}") from exc
+    return candidate
+
+
 def _state_dir(repo: Path) -> Path:
     return repo / STATE_REL
 
 
 def _read_receipt(repo: Path) -> dict[str, object]:
-    path = _state_dir(repo) / RECEIPT_NAME
+    path = _safe_target(repo, STATE_REL / RECEIPT_NAME)
     if not path.is_file():
         raise SystemExit(
             f"no installer receipt found at {path}; rollback is only automatic for changes applied by this preview.2 installer"
@@ -111,7 +132,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
     file_plan: list[dict[str, str]] = []
     for source in payload_files():
         rel = source.relative_to(PAYLOAD)
-        target = repo / rel
+        target = _safe_target(repo, rel)
         source_hash = sha256(source)
         if target.exists():
             if not target.is_file():
@@ -136,7 +157,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
             changes.append(f"add {rel.as_posix()}")
             file_plan.append({"path": rel.as_posix(), "action": "added", "payload_sha256": source_hash})
 
-    skill = repo / SKILL_REL
+    skill = _safe_target(repo, SKILL_REL)
     original_skill = skill.read_text(encoding="utf-8")
     skill_inserted = False
     if INSERT.strip() in original_skill:
@@ -151,7 +172,7 @@ def _apply_plan(repo: Path, *, force: bool) -> tuple[list[str], list[dict[str, s
 
 def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
     verify_payload_integrity()
-    state_dir = _state_dir(repo)
+    state_dir = _safe_target(repo, STATE_REL)
     changes, file_plan, skill_inserted, original_skill = _apply_plan(repo, force=force)
     if dry_run:
         return changes
@@ -163,7 +184,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
             raise SystemExit(f"existing installer state found at {state_dir}; roll back it before reapplying")
         return changes
 
-    skill = repo / SKILL_REL
+    skill = _safe_target(repo, SKILL_REL)
     state_parent = state_dir.parent
     state_parent_existed = state_parent.exists()
     state_parent.mkdir(parents=True, exist_ok=True)
@@ -176,7 +197,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
         for item in file_plan:
             rel = _safe_rel(item["path"])
             if item["action"] == "replaced":
-                target = repo / rel
+                target = _safe_target(repo, rel)
                 backup = temp_state / "backups" / rel
                 backup.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(target, backup)
@@ -186,7 +207,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
                 continue
             rel = _safe_rel(item["path"])
             source = PAYLOAD / rel
-            target = repo / rel
+            target = _safe_target(repo, rel)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
 
@@ -205,7 +226,7 @@ def apply(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
     except BaseException:
         for item in reversed(file_plan):
             rel = _safe_rel(item["path"])
-            target = repo / rel
+            target = _safe_target(repo, rel)
             if item["action"] == "added":
                 if target.is_file():
                     target.unlink()
@@ -240,7 +261,7 @@ def _remove_gateway_section(text: str, *, force: bool) -> str:
 def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tuple[list[str], list[dict[str, str]], str]:
     changes: list[str] = []
     operations: list[dict[str, str]] = []
-    state_dir = _state_dir(repo)
+    state_dir = _safe_target(repo, STATE_REL)
     raw_files = receipt.get("files")
     assert isinstance(raw_files, list)
     for raw in raw_files:
@@ -248,7 +269,7 @@ def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tu
             raise SystemExit("malformed file entry in installer receipt")
         item = {str(k): str(v) for k, v in raw.items()}
         rel = _safe_rel(item["path"])
-        target = repo / rel
+        target = _safe_target(repo, rel)
         action = item["action"]
         if action == "preexisting_same":
             changes.append(f"leave pre-existing {rel.as_posix()}")
@@ -269,7 +290,7 @@ def _rollback_plan(repo: Path, receipt: dict[str, object], *, force: bool) -> tu
         changes.append(("remove " if action == "added" else "restore original ") + rel.as_posix())
         operations.append(item)
 
-    skill = repo / SKILL_REL
+    skill = _safe_target(repo, SKILL_REL)
     skill_text = skill.read_text(encoding="utf-8")
     restored_skill = skill_text
     if receipt.get("skill_inserted") is True:
@@ -286,15 +307,15 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
     if dry_run:
         return changes
 
-    state_dir = _state_dir(repo)
-    skill = repo / SKILL_REL
+    state_dir = _safe_target(repo, STATE_REL)
+    skill = _safe_target(repo, SKILL_REL)
     current_skill = skill.read_text(encoding="utf-8")
     with tempfile.TemporaryDirectory(prefix="aipc-rollback-txn-") as temp:
         txn = Path(temp)
         (txn / "skill.md").write_text(current_skill, encoding="utf-8")
         for item in operations:
             rel = _safe_rel(item["path"])
-            target = repo / rel
+            target = _safe_target(repo, rel)
             if target.is_file():
                 saved = txn / "current" / rel
                 saved.parent.mkdir(parents=True, exist_ok=True)
@@ -302,7 +323,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
         try:
             for item in operations:
                 rel = _safe_rel(item["path"])
-                target = repo / rel
+                target = _safe_target(repo, rel)
                 if item["action"] == "added":
                     if target.is_file():
                         target.unlink()
@@ -315,7 +336,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
         except BaseException:
             for item in operations:
                 rel = _safe_rel(item["path"])
-                target = repo / rel
+                target = _safe_target(repo, rel)
                 saved = txn / "current" / rel
                 if saved.is_file():
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -328,7 +349,7 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
     shutil.rmtree(state_dir)
     for item in operations:
         rel = _safe_rel(item["path"])
-        parent = (repo / rel).parent
+        parent = _safe_target(repo, rel).parent
         while parent != repo and parent.exists() and parent != state_dir.parent and not any(parent.iterdir()):
             parent.rmdir()
             parent = parent.parent
@@ -339,8 +360,17 @@ def rollback(repo: Path, *, dry_run: bool, force: bool) -> list[str]:
 
 
 def run_tests(repo: Path) -> int:
-    command = [sys.executable, "-m", "unittest", "-v", "tests/test_multi_interface_gateway.py"]
-    return subprocess.run(command, cwd=repo, check=False).returncode
+    commands = [
+        [sys.executable, "tools/validate_skill.py", "skills/ai-project-copilot"],
+        [sys.executable, "skills/ai-project-copilot/scripts/run_skill_evals.py", "--format", "json"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"],
+        [sys.executable, "-m", "compileall", "-q", "tools", "tests", "skills/ai-project-copilot/scripts"],
+    ]
+    for command in commands:
+        result = subprocess.run(command, cwd=repo, check=False)
+        if result.returncode:
+            return result.returncode
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -360,7 +390,11 @@ def main(argv: list[str] | None = None) -> int:
     for item in changes:
         print(item)
     if args.run_tests and not args.rollback and not args.dry_run:
-        return run_tests(repo)
+        result = run_tests(repo)
+        if result:
+            print("verification failed; rolling back the preview installation", file=sys.stderr)
+            rollback(repo, dry_run=False, force=False)
+        return result
     return 0
 
 

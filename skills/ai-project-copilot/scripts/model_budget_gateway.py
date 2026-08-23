@@ -43,6 +43,52 @@ MAX_RESPONSE_BYTES = 25 * 1024 * 1024
 MAX_SSE_EVENT_BYTES = 10 * 1024 * 1024
 MAX_QUALITY_CAPTURE_CHARS = 8_000
 MAX_QUALITY_CAPTURE_BYTES = MAX_QUALITY_CAPTURE_CHARS * 4
+FIX4_PROVIDER_JSON_HARDENING = True
+FIX5_GATEWAY_JSON_HARDENING = True
+FIX6_GATEWAY_JSON_HARDENING = True
+MAX_JSON_NESTING = 256
+
+
+def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > maximum:
+                return True
+        elif char in "]}":
+            depth = max(0, depth - 1)
+    return False
+
+
+def _json_value_nesting_exceeds(value: object, maximum: int = MAX_JSON_NESTING) -> bool:
+    """Check already-decoded JSON-like values without recursive Python calls."""
+    stack: list[tuple[object, int]] = [(value, 0)]
+    while stack:
+        current, depth = stack.pop()
+        if isinstance(current, Mapping):
+            next_depth = depth + 1
+            if next_depth > maximum:
+                return True
+            stack.extend((item, next_depth) for item in current.values())
+        elif isinstance(current, (list, tuple)):
+            next_depth = depth + 1
+            if next_depth > maximum:
+                return True
+            stack.extend((item, next_depth) for item in current)
+    return False
 COUNT_PAYLOAD_FIELDS = frozenset(
     {
         "input",
@@ -238,6 +284,10 @@ class _LeaseRenewer:
 
 
 def _canonical_json_bytes(value: object) -> bytes:
+    if _json_value_nesting_exceeds(value):
+        raise ValueError(
+            f"request must be canonical JSON: nesting exceeds the safe limit of {MAX_JSON_NESTING}"
+        )
     try:
         return json.dumps(
             value,
@@ -246,7 +296,7 @@ def _canonical_json_bytes(value: object) -> bytes:
             separators=(",", ":"),
             allow_nan=False,
         ).encode("utf-8")
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, RecursionError) as exc:
         raise ValueError(f"request must be canonical JSON: {exc}") from exc
 
 
@@ -424,14 +474,30 @@ def _safe_provider_error_payload(data: bytes) -> str:
     if not data:
         return "provider returned no error body"
     try:
-        payload = json.loads(data.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError):
-        return "provider returned a non-JSON error body"
+        payload = _load_provider_json(data, "provider error body", request_may_have_started=True)
+    except ProviderError:
+        return "provider returned a non-JSON or unsafe error body"
     if isinstance(payload, Mapping):
         error = payload.get("error")
         if isinstance(error, Mapping) and isinstance(error.get("message"), str):
             return error["message"][:1_000]
     return "provider returned an unrecognized error body"
+
+
+def _load_provider_json(data: bytes, label: str, *, request_may_have_started: bool) -> object:
+    try:
+        text = data.decode("utf-8")
+    except UnicodeError as exc:
+        raise ProviderError(f"{label} was not valid UTF-8", request_may_have_started=request_may_have_started) from exc
+    if _json_nesting_exceeds(text):
+        raise ProviderError(
+            f"{label} nesting exceeds the safe limit of {MAX_JSON_NESTING}",
+            request_may_have_started=request_may_have_started,
+        )
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, RecursionError) as exc:
+        raise ProviderError(f"{label} was invalid JSON: {exc}", request_may_have_started=request_may_have_started) from exc
 
 
 def iter_sse_events(stream: BinaryIO) -> Iterable[dict[str, Any]]:
@@ -467,13 +533,7 @@ def iter_sse_events(stream: BinaryIO) -> Iterable[dict[str, Any]]:
             total = 0
             if body.strip() == b"[DONE]":
                 break
-            try:
-                event = json.loads(body.decode("utf-8"))
-            except (UnicodeError, json.JSONDecodeError) as exc:
-                raise ProviderError(
-                    f"provider returned malformed SSE JSON: {exc}",
-                    request_may_have_started=True,
-                ) from exc
+            event = _load_provider_json(body, "provider SSE event", request_may_have_started=True)
             if not isinstance(event, dict):
                 raise ProviderError(
                     "provider SSE data must be a JSON object",
@@ -600,13 +660,7 @@ class OpenAIResponsesClient:
         with self._open(request) as response:
             data = _read_limited(response, MAX_RESPONSE_BYTES)
         latency = (self.clock() - started) * 1_000
-        try:
-            result = json.loads(data.decode("utf-8"))
-        except (UnicodeError, json.JSONDecodeError) as exc:
-            raise ProviderError(
-                f"token count response was invalid JSON: {exc}",
-                request_may_have_started=False,
-            ) from exc
+        result = _load_provider_json(data, "token count response", request_may_have_started=False)
         if not isinstance(result, Mapping):
             raise ProviderError(
                 "token count response must be an object",
@@ -920,7 +974,10 @@ def load_quality_policy(path: Path | None) -> QualityPolicy | None:
     if len(data) > 1_000_000:
         raise ValueError("quality policy exceeds 1 MB")
     try:
-        payload = json.loads(data.decode("utf-8"))
+        text = data.decode("utf-8")
+        if _json_nesting_exceeds(text):
+            raise ValueError(f"quality policy nesting exceeds the safe limit of {MAX_JSON_NESTING}")
+        payload = json.loads(text)
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise ValueError(f"quality policy is invalid JSON: {exc}") from exc
     if not isinstance(payload, Mapping):
@@ -1405,7 +1462,10 @@ def _read_json(path: Path, label: str) -> Mapping[str, Any]:
     if len(data) > MAX_REQUEST_BYTES:
         raise ValueError(f"{label} exceeds {MAX_REQUEST_BYTES} bytes")
     try:
-        payload = json.loads(data.decode("utf-8"))
+        text = data.decode("utf-8")
+        if _json_nesting_exceeds(text):
+            raise ValueError(f"{label} nesting exceeds the safe limit of {MAX_JSON_NESTING}")
+        payload = json.loads(text)
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise ValueError(f"{label} is invalid JSON: {exc}") from exc
     if not isinstance(payload, Mapping):
@@ -1520,7 +1580,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stderr.write("\n")
         _emit(result, args.format)
         return 0 if result.final_status == "success" else 3
-    except (ValueError, GatewayError, OSError) as exc:
+    except (ValueError, GatewayError, OSError, RecursionError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

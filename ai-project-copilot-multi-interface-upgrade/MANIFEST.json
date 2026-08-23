@@ -27,8 +27,8 @@
     },
     {
       "path": "payload/skills/ai-project-copilot/references/multi-interface-gateway.md",
-      "sha256": "4c031d9a8b29f21229cf18ba37d89a6616e7ddd530c19a0669ed3079ed8dda8f",
-      "bytes": 7511
+      "sha256": "3f59c2a556f86e6be6b1a6f2547eda6a24e7e3276dd01c41eaca3a2db46f367f",
+      "bytes": 7564
     },
     {
       "path": "payload/skills/ai-project-copilot/scripts/project_copilot.py",
@@ -37,8 +37,8 @@
     },
     {
       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_api.py",
-      "sha256": "def381304b5c773331daf8d79ce9371937d16a8c9bef0e6a6b13277a4b05ff65",
-      "bytes": 9985
+      "sha256": "ac3b0b3a1177bca3426f9b5926605049789f77272cc12d6ab72000949b3871f4",
+      "bytes": 10859
     },
     {
       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_core.py",
@@ -47,23 +47,23 @@
     },
     {
       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
-      "sha256": "ad9c092187045dfa42012e9be599f31b1a4e1c9db8fd52534a804b264be26763",
-      "bytes": 11114
+      "sha256": "bf4f89c28135f831abc687928aa5ee5a9a0b8aed53729fda09774ba1acad5696",
+      "bytes": 12630
     },
     {
       "path": "payload/tests/test_multi_interface_gateway.py",
-      "sha256": "7217aa5cdc07fb0822add9cf81082d629d16c63f7ddb679b04a01ec01551844b",
-      "bytes": 12351
+      "sha256": "260797f07bf92176085ea7e9965396f7de7defcfaa69f4138b0c6efd2abe794f",
+      "bytes": 12485
     },
     {
       "path": "apply_multi_interface_patch.py",
-      "sha256": "4ea7ff215ae94ede1a0af03e5b77a7ba6de25d3adfadae53ee17d631a2e60b29",
-      "bytes": 16437
+      "sha256": "9a306e1c05498488d2769bbac2789be9d891dd935ced1e8ce5ab001fc7989c6e",
+      "bytes": 18181
     },
     {
       "path": "ai-project-copilot-multi-interface.patch",
-      "sha256": "90f14d8fa56bd2d25ef0ffb5c6f230e24ef3493b4863af9bffd3c839309b55c0",
-      "bytes": 147185
+      "sha256": "1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd",
+      "bytes": 85750
     },
     {
       "path": "PATCH_NOTES.zh-CN.md",

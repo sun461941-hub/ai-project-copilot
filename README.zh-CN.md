@@ -2,7 +2,7 @@
 
 一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
 
-> 当前主分支包含 fix3.0 系列加固。正式版本号应以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准；不要把临时补丁 ZIP 或解压目录当成产品源码提交。
+> 当前可安装 Skill 版本为 2.1.x；多接口 Gateway 仍是独立的 2.2 预览补丁，不代表正式发布。正式版本号应以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
 
 ## 核心能力
 
@@ -54,7 +54,7 @@ python tools/package_skill.py skills/ai-project-copilot \
 
 ## 版本与发布治理
 
-`fix3.0` 可以作为修复批次名称，但正式公开版本建议统一使用 SemVer，例如 `v3.0.0`。发布前应同步：
+内部修复批次名称不能代替公开版本。正式公开版本应统一使用 SemVer；发布前应同步：
 
 - `CHANGELOG.md`
 - README / 中文 README

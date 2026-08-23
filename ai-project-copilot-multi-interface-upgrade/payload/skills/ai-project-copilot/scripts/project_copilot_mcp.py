@@ -30,6 +30,32 @@ PROTOCOL_META_KEY = "io.modelcontextprotocol/protocolVersion"
 CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
 CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
 SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
+MAX_MESSAGE_BYTES = 1024 * 1024
+MAX_JSON_NESTING = 256
+
+
+def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > maximum:
+                return True
+        elif char in "]}":
+            depth = max(0, depth - 1)
+    return False
 UNSUPPORTED_PROTOCOL_VERSION = -32022
 
 
@@ -214,17 +240,33 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def serve_stdio(adapter: MCPAdapter) -> int:
-    for raw in sys.stdin:
-        raw = raw.strip()
+    while True:
+        encoded = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
+        if not encoded:
+            break
+        if len(encoded) > MAX_MESSAGE_BYTES:
+            response = _error(None, -32600, "Invalid Request", "message exceeds size limit")
+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+            sys.stdout.flush()
+            continue
+        try:
+            raw = encoded.decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            response = _error(None, -32700, "Parse error", str(exc))
+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+            sys.stdout.flush()
+            continue
         if not raw:
             continue
         try:
+            if _json_nesting_exceeds(raw):
+                raise ValueError("JSON nesting exceeds safe limit")
             message = json.loads(raw)
             if not isinstance(message, dict):
                 response = _error(None, -32600, "Invalid Request")
             else:
                 response = adapter.handle(message)
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, ValueError, RecursionError) as exc:
             response = _error(None, -32700, "Parse error", str(exc))
         except Exception as exc:  # Fail closed at the protocol boundary; log detail to stderr.
             print(f"[aipc-mcp] internal error: {exc}", file=sys.stderr)

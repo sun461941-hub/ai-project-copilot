@@ -24,6 +24,31 @@ from typing import Any
 from project_copilot_core import CopilotEngine, CopilotError, ExecutionPolicy, invoke
 
 MAX_REQUEST_BYTES = 1024 * 1024
+MAX_JSON_NESTING = 256
+
+
+def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > maximum:
+                return True
+        elif char in "]}":
+            depth = max(0, depth - 1)
+    return False
 
 
 def _is_loopback(host: str) -> bool:
@@ -152,8 +177,12 @@ class CopilotHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"status": "error", "error": "request body too large"})
             return
         try:
-            body = json.loads(self.rfile.read(length).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            text = self.rfile.read(length).decode("utf-8")
+            if _json_nesting_exceeds(text):
+                self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": "JSON nesting exceeds safe limit"})
+                return
+            body = json.loads(text)
+        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"status": "error", "error": f"invalid JSON: {exc}"})
             return
         if not isinstance(body, dict):
@@ -196,9 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     api_key = os.environ.get(args.api_key_env)
     if api_key is not None and not api_key:
         api_key = None
-    if not _is_loopback(args.host) and not api_key:
+    if not _is_loopback(args.host):
         print(
-            f"refusing to bind {args.host!r} without a bearer token in environment variable {args.api_key_env}",
+            f"refusing plaintext non-loopback bind {args.host!r}; place the loopback server behind an authenticated TLS proxy",
             file=sys.stderr,
         )
         return 2

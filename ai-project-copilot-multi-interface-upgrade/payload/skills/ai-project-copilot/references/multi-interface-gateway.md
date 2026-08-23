@@ -24,7 +24,7 @@ Treat every adapter as a capability boundary.
 
 - Do not expose arbitrary shell or executable parameters.
 - Keep merge, publish, deploy, delete, permission changes, and repository writes outside the gateway unless a separate explicitly reviewed write protocol is added later.
-- REST binds to `127.0.0.1` by default. A non-loopback bind is rejected unless a bearer token is present in `AIPC_API_KEY` (or the environment variable selected with `--api-key-env`).
+- REST binds to `127.0.0.1` and rejects every plaintext non-loopback bind. For remote access, keep the process on loopback and place an authenticated TLS reverse proxy in front.
 - REST rejects requests carrying a browser `Origin` header; it is intended for trusted programs/agents, not arbitrary web pages.
 - MCP and REST restrict caller-supplied repository/file paths to configured `--allow-root` directories. If no root is supplied, the current working directory is the only allowed root.
 - Generic helper subprocesses receive a small runtime environment allowlist and do not inherit common cloud/model/repository credentials.
@@ -130,16 +130,16 @@ curl -sS http://127.0.0.1:8787/v1/run \
   }'
 ```
 
-For a non-loopback bind, put the token only in the environment:
+For authenticated remote access, keep the adapter on loopback and put the token only in the environment:
 
 ```bash
 export AIPC_API_KEY='replace-with-a-long-random-secret'
 python scripts/project_copilot_api.py \
-  --host 0.0.0.0 \
+  --host 127.0.0.1 \
   --allow-root /srv/repos
 ```
 
-Then send `Authorization: Bearer <token>`. Put TLS/reverse-proxy authentication in front of any internet-facing deployment; this preview server is a small adapter, not a full multi-tenant SaaS gateway.
+Configure the TLS reverse proxy to forward only authenticated requests to this loopback listener, then send `Authorization: Bearer <token>`. The preview server is a small adapter, not a full multi-tenant SaaS gateway.
 
 ## 4. MCP stdio server
 

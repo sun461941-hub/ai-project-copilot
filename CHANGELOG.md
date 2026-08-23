@@ -4,6 +4,15 @@ All notable changes to AI Project Copilot are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **fix6 gateway source hardening** rejects unsafe nesting across all real Gateway JSON boundaries and converts recursion failures into controlled errors;
+- bounded JSON parsing now covers provider HTTP errors, SSE events, token-count responses, local request files, served-model maps, and quality policies;
+- release validation rebuilds to a distinct archive instead of asking the fail-closed packager to overwrite its first output;
+- preview REST/MCP inputs are size/depth bounded, non-loopback plaintext serving is rejected, and preview installer paths reject symlink escapes;
+- CI now exercises preview gateway/installer tests and repository integrity checks.
+- preview output-capture coverage now accepts platform-specific newline byte counts while retaining the bounded-capture and full-drain guarantees.
+
 ## [2.1.0] - 2026-08-14
 
 ### Added

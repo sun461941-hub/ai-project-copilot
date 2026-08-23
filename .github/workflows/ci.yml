@@ -49,6 +49,9 @@ jobs:
       - name: Validate skill
         run: python tools/validate_skill.py skills/ai-project-copilot
 
+      - name: Verify gateway hardening state
+        run: python tools/apply_fix6_mobile_release.py --repo . --check
+
       - name: Run deterministic Skill evals
         run: >-
           python skills/ai-project-copilot/scripts/run_skill_evals.py
@@ -57,8 +60,26 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
+      - name: Run preview installer tests
+        working-directory: ai-project-copilot-multi-interface-upgrade
+        run: python -m unittest discover -s package_tests -v
+
+      - name: Run preview gateway tests
+        working-directory: ai-project-copilot-multi-interface-upgrade/payload
+        run: python -m unittest discover -s tests -v
+
+      - name: Verify checked-in integrity manifests
+        if: runner.os == 'Linux'
+        run: |
+          sha256sum -c SHA256SUMS.txt
+          (cd ai-project-copilot-patch && sha256sum -c SHA256SUMS.txt)
+          (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
+
       - name: Compile Python sources
-        run: python -m compileall -q tools tests skills/ai-project-copilot/scripts
+        run: >-
+          python -m compileall -q tools tests skills/ai-project-copilot/scripts
+          ai-project-copilot-multi-interface-upgrade/package_tests
+          ai-project-copilot-multi-interface-upgrade/payload
 
   package:
     name: Build distributable skill

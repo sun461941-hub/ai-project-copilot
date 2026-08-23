@@ -60,9 +60,13 @@ jobs:
       - name: Validate and test
         run: |
           python tools/validate_skill.py skills/ai-project-copilot
+          python tools/apply_fix6_mobile_release.py --repo . --check
           python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
           python -m unittest discover -s tests -v
           python -m compileall -q tools tests skills/ai-project-copilot/scripts
+          sha256sum -c SHA256SUMS.txt
+          (cd ai-project-copilot-patch && sha256sum -c SHA256SUMS.txt)
+          (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
 
       - name: Build release archive
         run: >-
@@ -73,8 +77,8 @@ jobs:
         run: |
           cp dist/ai-project-copilot.skill.zip dist/first.skill.zip
           python tools/package_skill.py skills/ai-project-copilot \
-            --output dist/ai-project-copilot.skill.zip
-          cmp dist/first.skill.zip dist/ai-project-copilot.skill.zip
+            --output dist/second.skill.zip
+          cmp dist/first.skill.zip dist/second.skill.zip
   publish:
     name: Publish approved release
     needs: validate

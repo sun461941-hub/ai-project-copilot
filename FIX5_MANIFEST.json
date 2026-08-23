@@ -1,20 +1,16 @@
 {
   "files": {
     ".github/workflows/apply-fix5-mobile.yml": {
-      "bytes": 3323,
-      "sha256": "1f035237ce84245b6cc7a0ccd44f2c218fe8575b677b0b9d75adfb397d207e10"
-    },
-    "FIX5_CLEANUP_CANDIDATES.txt": {
-      "bytes": 451,
-      "sha256": "9b97c2186cb74bc930bb07b554f4c398d31449d960bcf67133fb5fdf589f8b74"
+      "bytes": 360,
+      "sha256": "03b81a89d53c125e676f172e3abc7324ab455346e74985a5845b57aa9d49e64f"
     },
     "FIX5_MOBILE_PATCH_NOTES.zh-CN.md": {
       "bytes": 2565,
       "sha256": "88ca3ea72dcc1be275f5f447b54ba00d9a3eca1186f46e94df71061e773bb0e0"
     },
     "README.zh-CN.md": {
-      "bytes": 3460,
-      "sha256": "52cb57c1b86c40e90a5d4370982b83a4421e5d374d7affc4fcb14f04982ec55c"
+      "bytes": 3450,
+      "sha256": "29e3643773a2976ea7940dcf2dfe9b2e7f519af0da93a0e65caa396586965b19"
     },
     "tools/apply_fix5_mobile_release.py": {
       "bytes": 18459,
