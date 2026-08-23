@@ -2,7 +2,7 @@
   <img src="docs/hero.svg" alt="AI Project Copilot — evidence-first AI product and maintainer intelligence" width="100%" />
 </p>
 
-<h1 align="center">AI Project Copilot 2.1.1</h1>
+<h1 align="center">AI Project Copilot 2.1.2</h1>
 
 <p align="center">
   A portable Agent Skill for <b>AI product engineering + open-source maintainer intelligence</b>.<br />
@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Agent Skills compatible" src="https://img.shields.io/badge/Agent%20Skills-compatible-6D5EF9" />
-  <img alt="v2.1.1" src="https://img.shields.io/badge/version-2.1.1-7C3AED" />
+  <img alt="v2.1.2" src="https://img.shields.io/badge/version-2.1.2-7C3AED" />
   <img alt="Blueprints" src="https://img.shields.io/badge/showcase%20blueprints-24-21B8F6" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E" /></a>
@@ -27,7 +27,7 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-> **v2.1.1 is the maintained patch line for the executable OpenAI budget gateway and deterministic eval workflow.** It preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
+> **v2.1.2 is the maintained patch line for the executable OpenAI budget gateway and deterministic eval workflow.** It preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
 
 ## The v2 capability lanes
 
@@ -471,9 +471,10 @@ skills/ai-project-copilot/
 ```
 
 For the complete maintainer map—including the boundary between canonical Skill
-source, historical patch bundles, generated outputs, verification commands, and
-the release path—read [`docs/repository-map.md`](docs/repository-map.md) before
-moving or deleting repository assets.
+source, the active multi-interface compatibility package, generated outputs,
+verification commands, and the release path—read
+[`docs/repository-map.md`](docs/repository-map.md) before moving or deleting
+repository assets.
 
 ## Demo path
 

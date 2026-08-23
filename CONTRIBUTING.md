@@ -35,9 +35,9 @@ Efficiency changes must report the same task/fixture before and after. Do not co
 ## Repository map and asset boundaries
 
 Read [`docs/repository-map.md`](docs/repository-map.md) before moving, deleting,
-or regenerating files. In particular, the root-level patch bundles and their
-checksum manifests are maintained compatibility/recovery assets, not disposable
-build output.
+or regenerating files. The active multi-interface package and its checksum
+manifests are maintained compatibility assets; one-off repair kits for
+superseded baselines belong in Git history rather than the current working tree.
 
 ## Adding a blueprint
 

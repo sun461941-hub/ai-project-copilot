@@ -49,9 +49,6 @@ jobs:
       - name: Validate skill
         run: python tools/validate_skill.py skills/ai-project-copilot
 
-      - name: Verify gateway hardening state
-        run: python tools/apply_fix6_mobile_release.py --repo . --check
-
       - name: Run deterministic Skill evals
         run: >-
           python skills/ai-project-copilot/scripts/run_skill_evals.py
@@ -72,7 +69,6 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sha256sum -c SHA256SUMS.txt
-          (cd ai-project-copilot-patch && sha256sum -c SHA256SUMS.txt)
           (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
 
       - name: Compile Python sources

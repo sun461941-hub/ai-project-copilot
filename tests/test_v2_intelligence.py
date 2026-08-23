@@ -329,7 +329,7 @@ class V2IntelligenceTests(unittest.TestCase):
     def test_skill_eval_suite_is_substantive(self) -> None:
         data = json.loads((SKILL / "evals" / "evals.json").read_text(encoding="utf-8"))
         self.assertEqual("ai-project-copilot", data["skill_name"])
-        self.assertEqual("2.1.1", data["version"])
+        self.assertEqual("2.1.2", data["version"])
         self.assertGreaterEqual(len(data["evals"]), 16)
         self.assertTrue(all(item.get("expectations") for item in data["evals"]))
 
@@ -340,7 +340,7 @@ class V2IntelligenceTests(unittest.TestCase):
 
     def test_v2_skill_is_context_bounded(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn('version: "2.1.1"', text)
+        self.assertIn('version: "2.1.2"', text)
         self.assertLessEqual(len(text.splitlines()), 500)
         for name in (
             "capability-router.md", "codebase-context.md", "pr-review-loop.md",

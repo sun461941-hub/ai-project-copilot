@@ -2,7 +2,7 @@
 
 一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
 
-> 当前可安装 Skill 版本为 2.1.1；多接口 Gateway 仍是独立的 2.2 预览补丁。正式版本号以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
+> 当前可安装 Skill 版本为 2.1.2；多接口 Gateway 仍是独立的 2.2 预览补丁。正式版本号以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
 
 ## 核心能力
 
@@ -47,8 +47,8 @@ python tools/package_skill.py skills/ai-project-copilot \
 ## 仓库维护地图
 
 变更前请先阅读 [仓库地图与维护边界](docs/repository-map.md)。它说明了
-可发布的 Skill 源码、历史补丁资产、自动化、校验清单和生成文件的边界；
-尤其不要把根目录的补丁包当作可随意删除的构建产物。
+可发布的 Skill 源码、仍在维护的多接口兼容包、自动化、校验清单和生成文件的边界；
+已经淘汰的一次性补丁保留在 Git 历史中，而不是继续占用仓库根目录。
 
 ## 安全边界
 

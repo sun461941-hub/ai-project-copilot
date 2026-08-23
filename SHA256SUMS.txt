@@ -1,4 +1,2 @@
-7b2f1bbd8feb058d4bf9d6c3890c9a3950a1f22cd7a8ee3bc9873ec45a2f6f73  FIX5_MANIFEST.json
-c18025204b420753f6dfa060cd6a44b7331723f9b6a9cd477b8c6c4140a975ad  ai-project-copilot-patch/ai-project-copilot-fixes.patch
 0b03497094d3ede14ac6f5c6ad425d0732e97d476af938ce879eab14521af3ea  ai-project-copilot-multi-interface-upgrade/MANIFEST.json
 1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd  ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch

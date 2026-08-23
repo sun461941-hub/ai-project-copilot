@@ -2,6 +2,18 @@
 
 All notable changes to AI Project Copilot are documented here.
 
+## [2.1.2] - 2026-08-24
+
+### Removed
+
+- retired the one-time fix5/fix6 mobile patch workflows and patch-application tools after their source changes were merged and covered by the canonical regression suite;
+- removed the superseded fix5 package, its manifest/notes, the applied audit sidecar patch, and the obsolete v1.1 maintainer-mode summary from the working tree; Git history retains their provenance.
+
+### Changed
+
+- CI and release validation now exercise the canonical Skill, regression suite, active multi-interface package, and current integrity manifests directly, with no stale write-capable patch workflow.
+- repository guidance now distinguishes active distributable compatibility assets from retired one-off repair kits.
+
 ## [2.1.1] - 2026-08-24
 
 ### Fixed
