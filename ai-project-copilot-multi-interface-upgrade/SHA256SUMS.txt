@@ -4,8 +4,8 @@
 78e947d9b250ef2509c514dde3569b2a8ab1c45c4a873ca15b4f608b99cc4ced  ./SKILL_INSERT.md
 3cf6c5c3395f1c43ae22f7cc342f1d04dfd20914b2200a5df7ee26eb1d90ba07  ./VERIFICATION_REPORT.zh-CN.md
 1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd  ./ai-project-copilot-multi-interface.patch
-9a306e1c05498488d2769bbac2789be9d891dd935ced1e8ce5ab001fc7989c6e  ./apply_multi_interface_patch.py
-30343f85cb219bb32b1b7a638ef6a2d603c6792d67c2b0042faeb4438024f3b3  ./package_tests/test_installer.py
+2a3ac6adc99f92af3a4efd7ed5b56329dec17550a04738d144c1b2bdde602f75  ./apply_multi_interface_patch.py
+b33d0f169b0deaf85237d886a86df3f82acbd91eb1e1247e310358309d41a2df  ./package_tests/test_installer.py
 88c68d3afbbf326fe90fd4bc377d836b049d1b265672751450c16d1a2ff63d04  ./payload/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json
 a625cc9cccd01bc58375ca254307bb74470c019f303ccfd1e54227141d641b3e  ./payload/skills/ai-project-copilot/assets/templates/project-copilot-mcp-stdio.json
 3f59c2a556f86e6be6b1a6f2547eda6a24e7e3276dd01c41eaca3a2db46f367f  ./payload/skills/ai-project-copilot/references/multi-interface-gateway.md

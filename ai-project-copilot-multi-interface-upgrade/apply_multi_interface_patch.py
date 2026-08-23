@@ -85,26 +85,29 @@ def validate_repo(repo: Path) -> Path:
 
 def _safe_rel(value: str) -> Path:
     path = Path(value)
-    if path.is_absolute() or ".." in path.parts or not path.parts:
+    if path.is_absolute() or path.drive or ".." in path.parts or not path.parts:
         raise SystemExit(f"unsafe path in patch receipt: {value!r}")
     return path
 
 
 def _safe_target(repo: Path, rel: Path) -> Path:
     """Return a repository-confined target and reject every symlink component."""
-    if rel.is_absolute() or ".." in rel.parts or not rel.parts:
+    if rel.is_absolute() or rel.drive or ".." in rel.parts or not rel.parts:
         raise SystemExit(f"unsafe patch target: {rel}")
     candidate = repo / rel
+    try:
+        candidate.relative_to(repo)
+    except ValueError as exc:
+        raise SystemExit(f"patch target escapes repository: {rel}") from exc
     current = repo
     for part in rel.parts:
         current = current / part
         if current.is_symlink():
             raise SystemExit(f"patch target contains a symlink component: {rel}")
-    resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(repo)
-    except ValueError as exc:
-        raise SystemExit(f"patch target escapes repository: {rel}") from exc
+    # `strict=False` has platform-specific behavior for a non-existent leaf
+    # below a symlinked temporary directory (notably on macOS and Windows).
+    # The lexical confinement check above, paired with rejecting every existing
+    # symlink component, gives the same safety guarantee without false escapes.
     return candidate
 
 

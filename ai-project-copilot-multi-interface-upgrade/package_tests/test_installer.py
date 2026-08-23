@@ -92,6 +92,15 @@ class InstallerTests(unittest.TestCase):
         installer.rollback(self.repo, dry_run=False, force=False)
         self.assertEqual(original, target.read_bytes())
 
+    def test_safe_target_allows_a_new_state_path_below_the_repository(self) -> None:
+        repo = self.repo.resolve()
+        target = installer._safe_target(repo, installer.STATE_REL / installer.RECEIPT_NAME)
+        self.assertEqual(repo / installer.STATE_REL / installer.RECEIPT_NAME, target)
+
+    def test_safe_target_rejects_parent_directory_escape(self) -> None:
+        with self.assertRaises(SystemExit):
+            installer._safe_target(self.repo.resolve(), Path("..") / "outside")
+
 
 if __name__ == "__main__":
     unittest.main()

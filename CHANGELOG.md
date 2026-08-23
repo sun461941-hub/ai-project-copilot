@@ -12,6 +12,7 @@ All notable changes to AI Project Copilot are documented here.
 - preview REST/MCP inputs are size/depth bounded, non-loopback plaintext serving is rejected, and preview installer paths reject symlink escapes;
 - CI now exercises preview gateway/installer tests and repository integrity checks.
 - preview output-capture coverage now accepts platform-specific newline byte counts while retaining the bounded-capture and full-drain guarantees.
+- preview installer confinement now handles non-existent state paths consistently on Windows and macOS while continuing to reject traversal, drive-qualified, and symlinked targets.
 
 ## [2.1.0] - 2026-08-14
 
