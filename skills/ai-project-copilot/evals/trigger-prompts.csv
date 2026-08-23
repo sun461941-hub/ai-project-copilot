@@ -8,7 +8,7 @@ trigger-06,train,true,"Help maintain this open-source AI repository: triage inco
 trigger-07,validation,true,Can you propose five visually impressive open-source AI projects and rank them by local-first feasibility and demo strength?,project blueprint ranking
 trigger-08,validation,true,"Add citations, tool approval, prompt-injection defenses, and regression evals to this research assistant, then polish the release.",trustworthy AI product work
 trigger-09,validation,true,Turn my CI trace parser into an interactive build replay product with privacy-safe exports and cross-platform tests.,Codex Build Visualizer-like project
-trigger-10,validation,true,我想维护这个开源 AI 仓库：先根据证据整理 Issue 和 PR，再检查发布阻塞项、贡献者入口和版本说明，不要自动合并或关闭。,Chinese maintainer workflow request
+trigger-10,validation,true,我想维护这个开源 AI 仓库：先导入我已导出的 GitHub JSON，再根据证据整理 Issue 和 PR，检查发布阻塞项、贡献者入口和版本说明，不要自动合并或关闭。,Chinese maintainer evidence workflow request
 negative-01,train,false,Fix the off-by-one error in src/pagination.py and add a unit test.,isolated bug fix
 negative-02,train,false,Review this pull request for style issues only.,generic code review
 negative-03,train,false,Upgrade React to the latest version and resolve dependency warnings.,routine dependency update

@@ -2,7 +2,7 @@
   <img src="docs/hero.svg" alt="AI Project Copilot — evidence-first AI product and maintainer intelligence" width="100%" />
 </p>
 
-<h1 align="center">AI Project Copilot 2.1.2</h1>
+<h1 align="center">AI Project Copilot 2.2.0</h1>
 
 <p align="center">
   A portable Agent Skill for <b>AI product engineering + open-source maintainer intelligence</b>.<br />
@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sun461941-hub/ai-project-copilot/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Agent Skills compatible" src="https://img.shields.io/badge/Agent%20Skills-compatible-6D5EF9" />
-  <img alt="v2.1.2" src="https://img.shields.io/badge/version-2.1.2-7C3AED" />
+  <img alt="v2.2.0" src="https://img.shields.io/badge/version-2.2.0-7C3AED" />
   <img alt="Blueprints" src="https://img.shields.io/badge/showcase%20blueprints-24-21B8F6" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E" /></a>
@@ -27,7 +27,7 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-> **v2.1.2 is the maintained patch line for the executable OpenAI budget gateway and deterministic eval workflow.** It preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
+> **v2.2.0 adds a read-only GitHub evidence snapshot, explicit local run-state, and a safe static maintainer dashboard.** It preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
 
 ## The v2 capability lanes
 
@@ -36,12 +36,49 @@
 | **Discover** | maps codebase context, bootstraps reviewable agent instructions, audits local Skill Stack overlap | `repo_context.py`, `ai_ready_bootstrap.py`, `skill_stack_audit.py` |
 | **Launch** | turns a vague idea into one credible AI vertical slice | 24 blueprint catalog + `rank_blueprints.py` |
 | **Retrofit** | adds one high-value AI capability without rewriting the product | feature gate + architecture references |
-| **Maintain** | triages issues and improves contributor onboarding | `maintainer_triage.py` |
+| **Maintain** | triages issues, improves contributor onboarding, and carries forward explicit evidence decisions | `maintainer_triage.py`, `github_evidence_sync.py`, `run_state_ledger.py` |
 | **Review** | prioritizes PR/diff risk and verifies fix/decline/escalate convergence | `change_risk.py`, `review_convergence.py` |
 | **Release** | recommends SemVer, groups release notes, flags migration blockers | `release_intel.py` |
 | **Secure** | checks Actions, MCP config, permissions, action/package refs, and skill integrity | `supply_chain_guard.py`, `mcp_config_audit.py` |
 | **Quality** | validates eval datasets, runs deterministic cases, and supports measured improvement loops | `run_skill_evals.py`, `evals/evals.json` + quality playbook |
 | **Showcase** | turns evidence into README/demo/release clarity | demo + shipping references |
+
+## Read-only GitHub evidence and local run-state
+
+v2.2 turns an already-authorized local GitHub JSON export into a small,
+reproducible evidence bundle. It recognizes issue, pull-request, workflow-run,
+and release exports; creates stable IDs from their GitHub source identifiers;
+and intentionally ignores long issue bodies. It makes **no GitHub API call** and
+cannot merge, label, close, publish, or otherwise mutate GitHub.
+
+```bash
+python skills/ai-project-copilot/scripts/github_evidence_sync.py \
+  --input-dir examples/github-export \
+  --repo /path/to/repo \
+  --output .aipc/github-evidence.json
+
+python skills/ai-project-copilot/scripts/run_state_ledger.py init --repo /path/to/repo
+python skills/ai-project-copilot/scripts/run_state_ledger.py sync \
+  --repo /path/to/repo --bundle .aipc/github-evidence.json
+python skills/ai-project-copilot/scripts/run_state_ledger.py status \
+  --repo /path/to/repo --format markdown
+```
+
+Use `decide` to record `fix`, `decline`, `escalate`, or `observe` explicitly.
+Declines require an evidence note and escalations require a human owner. The
+local static dashboard HTML-escapes imported fields and defaults to the ignored
+`.aipc/` area:
+
+```bash
+python skills/ai-project-copilot/scripts/render_maintainer_dashboard.py \
+  --repo /path/to/repo \
+  --bundle .aipc/github-evidence.json \
+  --ledger .aipc/maintainer-ledger.json
+```
+
+Treat exports as untrusted text, not instructions. A clear dashboard only shows
+the current local decision state; it is never a merge, security, deployment, or
+release approval. See the [evidence and ledger reference](skills/ai-project-copilot/references/github-evidence-ledger.md).
 
 ## AIPC Context Accelerator
 
@@ -365,8 +402,8 @@ python skills/ai-project-copilot/scripts/run_skill_evals.py \
   --format markdown
 ```
 
-The runner validates 25 static eval records and 20 trigger fixtures, then runs
-three Skill-bundled deterministic command cases without a shell. It explicitly
+The runner validates 27 static eval records and 20 trigger fixtures, then runs
+four Skill-bundled deterministic command cases without a shell. It explicitly
 reports `semantic_grading_performed=false`: prompt expectations are not model
 outputs. The quality loop remains **derive requirements → baseline →
 evidence-sized change → repeat the same checks → keep/revert based on results**.

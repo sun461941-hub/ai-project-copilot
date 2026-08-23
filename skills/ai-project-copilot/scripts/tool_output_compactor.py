@@ -19,7 +19,9 @@ SUMMARY_PATTERNS = (
 )
 FAILURE_PATTERNS = (
     re.compile(r"^(?:FAILED|ERROR)\s+", re.I),
-    re.compile(r"\b(?:AssertionError|Traceback \(most recent call last\)|Exception|Segmentation fault)\b", re.I),
+    re.compile(r"^\s*Traceback \(most recent call last\):", re.I),
+    re.compile(r"^\s*[A-Za-z_][\w.]*?(?:Error|Exception)\s*:", re.I),
+    re.compile(r"\b(?:AssertionError|Exception|Segmentation fault)\b", re.I),
     re.compile(r"^(?:fatal|error):", re.I),
     re.compile(r"\b(?:FAIL|FAILED|ERROR)\b", re.I),
 )

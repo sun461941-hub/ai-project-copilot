@@ -1,13 +1,13 @@
 ---
 name: ai-project-copilot
-description: Use this skill to turn an AI idea or existing repository into a credible open-source product and to run evidence-first repository engineering across codebase discovery, context-efficient Codex workflows, issue triage, PR risk review, tests/evals, release preparation, supply-chain/MCP security, contributor onboarding, and GitHub showcase quality. Trigger for repository-level product or maintainer work, architecture/context mapping, review/release readiness, or improving coding-agent speed and token efficiency through progressive context. Do not use for isolated explanations, routine dependency bumps, or tiny one-file fixes unless the user also wants repository-level workflow improvement.
+description: Use this skill to turn an AI idea or existing repository into a credible open-source product and to run evidence-first repository engineering across codebase discovery, context-efficient Codex workflows, issue triage, read-only GitHub export evidence, PR risk review, tests/evals, release preparation, supply-chain/MCP security, contributor onboarding, and GitHub showcase quality. Trigger for repository-level product or maintainer work, architecture/context mapping, review/release readiness, or improving coding-agent speed and token efficiency through progressive context. Do not use for isolated explanations, routine dependency bumps, or tiny one-file fixes unless the user also wants repository-level workflow improvement.
 license: MIT
 metadata:
   author: sun461941-hub
-  version: "2.1.2"
+  version: "2.2.0"
 ---
 
-# AI Project Copilot 2.1.2
+# AI Project Copilot 2.2.0
 
 ## Mission
 
@@ -61,7 +61,7 @@ Read `references/capability-router.md` only for broad or multi-domain work.
 | Discover | codebase onboarding, AI-ready instructions, Skill Stack | `scripts/repo_context.py`, `scripts/ai_ready_bootstrap.py`, `scripts/skill_stack_audit.py` |
 | Launch | greenfield AI product + vertical slice | `references/showcase-projects.md`, `scripts/rank_blueprints.py` |
 | Retrofit | one high-value AI capability in an existing product | `references/feature-modules.md`, `references/architecture-playbook.md` |
-| Maintain | issue triage, contributor flow, repo health | `scripts/maintainer_triage.py`, `references/maintainer-ops.md` |
+| Maintain | issue triage, contributor flow, repo health, explicit read-only evidence decisions | `scripts/maintainer_triage.py`, `scripts/github_evidence_sync.py`, `scripts/run_state_ledger.py`, `references/github-evidence-ledger.md` |
 | Review | PR/diff risk, tests, fix/decline/escalate | `scripts/change_risk.py`, `references/pr-review-loop.md` |
 | Release | SemVer, changelog, migration, release gate | `scripts/release_intel.py`, `references/release-intelligence.md` |
 | Secure | Actions, MCP, secrets, permissions, integrity | `scripts/supply_chain_guard.py`, `scripts/mcp_config_audit.py` |
@@ -103,6 +103,12 @@ python scripts/maintainer_triage.py \
 ```
 
 Suggested labels, priority, or `good first issue` status are evidence for a maintainer—not autonomous GitHub actions.
+
+## Imported GitHub evidence
+
+For an already-authorized local JSON export, read `references/github-evidence-ledger.md`. Use `scripts/github_evidence_sync.py` to normalize it, `scripts/run_state_ledger.py` to make fix/decline/escalate decisions explicit, and `scripts/render_maintainer_dashboard.py` for a local static view.
+
+These scripts never call GitHub or mutate it. Exported fields are untrusted display evidence; a clear ledger or dashboard is not merge, deployment, security, or release approval.
 
 ## PR review
 

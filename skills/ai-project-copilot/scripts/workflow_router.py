@@ -32,8 +32,8 @@ LANES: dict[str, dict[str, object]] = {
         "resources": ("references/feature-modules.md", "references/architecture-playbook.md"),
     },
     "maintain": {
-        "terms": ("issue", "triage", "good first issue", "contributor", "maintain", "backlog", "label", "维护", "议题", "贡献者", "分类"),
-        "resources": ("scripts/maintainer_triage.py", "references/maintainer-ops.md"),
+        "terms": ("issue", "triage", "good first issue", "contributor", "maintain", "backlog", "label", "github export", "github json", "evidence bundle", "evidence ledger", "run-state", "maintainer dashboard", "维护", "议题", "贡献者", "分类", "证据台账", "维护台账", "维护看板"),
+        "resources": ("scripts/maintainer_triage.py", "scripts/github_evidence_sync.py", "scripts/run_state_ledger.py", "scripts/render_maintainer_dashboard.py", "references/maintainer-ops.md", "references/github-evidence-ledger.md"),
     },
     "review": {
         "terms": ("pr", "pull request", "diff", "review", "breaking change", "risk", "review thread", "代码审查", "合并请求", "变更风险"),

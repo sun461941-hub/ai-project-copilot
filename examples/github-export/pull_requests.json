@@ -1,0 +1,12 @@
+{
+  "pull_requests": [
+    {
+      "number": 7,
+      "title": "Harden release validation",
+      "state": "open",
+      "mergeable": false,
+      "html_url": "https://github.com/example/demo/pull/7",
+      "updated_at": "2026-08-24T00:00:00Z"
+    }
+  ]
+}

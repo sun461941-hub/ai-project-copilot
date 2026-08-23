@@ -1,0 +1,12 @@
+{
+  "workflow_runs": [
+    {
+      "id": 99,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/example/demo/actions/runs/99",
+      "updated_at": "2026-08-24T00:00:00Z"
+    }
+  ]
+}

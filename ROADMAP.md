@@ -33,20 +33,20 @@ This roadmap describes intended directions, not promises or compatibility guaran
 - executable structural/deterministic Skill eval runner;
 - official Skill frontmatter compatibility and targeted context/security fixes.
 
-## v2.2 — Multi-interface preview + connected evidence adapters
+## v2.2 — Read-only evidence and local maintainer state ✅
+
+- normalized, bounded read-only import for issue/PR/release/workflow JSON exports;
+- stable evidence IDs across mutable title/status updates;
+- explicit local run-state ledger that carries forward fix/decline/escalate/observe decisions without opaque agent memory;
+- static local maintainer dashboard with escaped imported fields and no GitHub mutation capability;
+- offline fixtures, deterministic evals, and path/depth/HTML-escaping regression coverage.
+
+## v2.3 — Connected evidence adapters + trend intelligence
 
 - graduate the reviewed CLI/REST/MCP preview into the installable Skill only after security and compatibility gates pass;
-- normalized read-only import for issue/PR/release/workflow exports;
-- compare local deterministic reports with GitHub-native status evidence;
+- optionally compare local deterministic reports with user-authorized GitHub-native status evidence;
 - contributor and maintenance trend snapshots from user-authorized data;
 - no automatic mutation by default.
-
-## v2.3 — Review memory without hidden state
-
-- explicit run-state ledger;
-- carry forward unresolved review/security/release decisions;
-- stable evidence IDs across iterations;
-- import/exportable JSON session state rather than opaque agent memory.
 
 ## v2.4 — Ecosystem interoperability
 
@@ -57,4 +57,4 @@ This roadmap describes intended directions, not promises or compatibility guaran
 
 ## v3.0 — Maintainer Control Plane
 
-Explore an optional local dashboard that visualizes repository context, issues, PR risk, CI/evals, security findings, releases, and human approval checkpoints from the same evidence schema.
+Explore an optional extension of the local dashboard that combines repository context, PR risk, CI/evals, security findings, releases, trends, and human approval checkpoints from the same evidence schema.

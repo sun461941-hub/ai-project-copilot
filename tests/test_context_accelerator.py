@@ -133,6 +133,19 @@ class ContextAcceleratorTests(unittest.TestCase):
         self.assertGreater(result.char_reduction, 0.8)
         self.assertLessEqual(result.compact_lines, 60)
 
+    def test_compactor_preserves_python_traceback_neighborhood(self) -> None:
+        lines = [f"ordinary output {index}" for index in range(120)]
+        lines += [
+            "Traceback (most recent call last):",
+            "ValueError: controlled sample failure",
+        ]
+        lines += [f"ordinary output {index}" for index in range(120, 180)]
+        lines.append("FAILED (failures=1)")
+        result = self.compactor.compact_text("\n".join(lines) + "\n", 80)
+        self.assertIn("Traceback (most recent call last):", result.text)
+        self.assertIn("ValueError: controlled sample failure", result.text)
+        self.assertIn("FAILED (failures=1)", result.text)
+
     def test_compactor_clips_pathological_single_line(self) -> None:
         raw = "x" * 50_000 + "\nFAILED test_x\n"
         result = self.compactor.compact_text(raw, 20)
@@ -332,7 +345,11 @@ class ContextAcceleratorTests(unittest.TestCase):
     def test_context_reference_and_scripts_are_present(self) -> None:
         skill = ROOT / "skills" / "ai-project-copilot"
         self.assertTrue((skill / "references" / "context-accelerator.md").exists())
-        for name in ("token_governor.py", "context_accelerator.py", "tool_output_compactor.py", "evidence_cache.py"):
+        self.assertTrue((skill / "references" / "github-evidence-ledger.md").exists())
+        for name in (
+            "token_governor.py", "context_accelerator.py", "tool_output_compactor.py", "evidence_cache.py",
+            "github_evidence_sync.py", "run_state_ledger.py", "render_maintainer_dashboard.py",
+        ):
             self.assertTrue((skill / "scripts" / name).exists())
 
     def test_skill_core_is_leaner_than_250_lines(self) -> None:

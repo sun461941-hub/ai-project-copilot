@@ -1,0 +1,15 @@
+[
+  {
+    "number": 42,
+    "title": "Document the release gate",
+    "state": "open",
+    "labels": [
+      {
+        "name": "documentation"
+      }
+    ],
+    "html_url": "https://github.com/example/demo/issues/42",
+    "updated_at": "2026-08-24T00:00:00Z",
+    "body": "This field is intentionally not retained in the normalized evidence bundle."
+  }
+]

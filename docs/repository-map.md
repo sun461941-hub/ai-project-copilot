@@ -12,6 +12,7 @@ files.
 | [`tests/`](../tests/) | Unit and regression coverage for the canonical Skill and tooling. | Add deterministic coverage for behavior changes and preserve cross-platform paths. |
 | [`evals/`](../evals/) and [`skills/ai-project-copilot/evals/`](../skills/ai-project-copilot/evals/) | Repository and Skill evaluation fixtures. | Keep prompts, expectations, and trigger cases evidence-based; they are not model-output proof. |
 | [`tools/`](../tools/) | Validation, packaging, and release-support helpers. | Preserve their fail-closed path and integrity checks. |
+| [`examples/github-export/`](../examples/github-export/) | Offline fixtures for the read-only GitHub evidence workflow. | Keep them synthetic, secret-free, and aligned with the documented import contract. |
 
 ## Automation and governance
 
@@ -39,7 +40,8 @@ write-capable workflows or root-level patch clutter.
 `dist/`, `.aipc/`, `__pycache__/`, test databases, temporary patch state, and
 similar local outputs are generated state. They should remain ignored and should
 not be committed unless a specific reproducible fixture requires it. Do not
-place secrets, API keys, or raw private logs in any of these paths.
+place secrets, API keys, raw private logs, or private GitHub export/ledger data
+in any of these paths.
 
 ## Change routes
 

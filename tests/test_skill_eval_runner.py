@@ -134,9 +134,9 @@ class SkillEvalRunnerTests(unittest.TestCase):
         self.assertTrue(report["passed"])
         self.assertFalse(report["semantic_grading_performed"])
         self.assertEqual("structural-and-deterministic-only", report["scope"])
-        self.assertEqual(25, report["summary"]["static_evals"])
+        self.assertEqual(27, report["summary"]["static_evals"])
         self.assertEqual(20, report["summary"]["trigger_cases"])
-        self.assertEqual(3, report["summary"]["command_passed"])
+        self.assertEqual(4, report["summary"]["command_passed"])
 
     def test_markdown_output_is_stable_and_discloses_limit(self) -> None:
         args = [PYTHON, str(RUNNER), "--format", "markdown"]
@@ -202,9 +202,9 @@ class SkillEvalRunnerTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr + result.stdout)
             report = json.loads(result.stdout)
             self.assertTrue(report["passed"])
-            self.assertEqual(25, report["summary"]["static_evals"])
+            self.assertEqual(27, report["summary"]["static_evals"])
             self.assertEqual(20, report["summary"]["trigger_cases"])
-            self.assertEqual(3, report["summary"]["command_passed"])
+            self.assertEqual(4, report["summary"]["command_passed"])
 
     def test_duplicate_eval_ids_and_empty_expectations_fail_schema(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

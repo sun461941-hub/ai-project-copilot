@@ -9,7 +9,7 @@ Use this reference when a request spans multiple repository/product domains. The
 | Discover | unfamiliar repo, architecture, impact map | run `repo_context.py` | relevant files + architecture evidence identified |
 | Launch | vague/new AI idea | write opportunity map, rank blueprints | one primary vertical slice chosen |
 | Retrofit | existing product needs AI | inspect current flow and constraints | one AI capability passes feature gate |
-| Maintain | issue/backlog/contributor workflow | triage evidence and scope | human-reviewable issue/action plan |
+| Maintain | issue/backlog/contributor workflow or exported GitHub evidence | triage/import evidence and scope | human-reviewable issue/action plan or local decision state |
 | Review | PR/diff/code-change review | inspect actual diff + run `change_risk.py` | blockers, review lanes, test evidence known |
 | Release | tag/version/changelog | classify commits + release diff | version, blockers, notes, publish gate known |
 | Secure | workflow/tool/plugin/supply chain | scan trust boundaries | findings + least-privilege remediation plan |
@@ -46,6 +46,13 @@ Use this reference when a request spans multiple repository/product domains. The
 2. Maintain
 3. Quality if task needs tests
 4. Showcase only if contributor-facing docs are poor
+
+### Review exported GitHub state
+
+1. Maintain: normalize the already-authorized local export with `github_evidence_sync.py`
+2. Maintain: synchronize `run_state_ledger.py` and record explicit decisions
+3. Review/Release/Secure/Quality only for the actual evidence present
+4. Human confirmation before every consequential GitHub action
 
 ## Routing constraints
 

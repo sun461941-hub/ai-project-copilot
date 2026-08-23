@@ -2,6 +2,25 @@
 
 All notable changes to AI Project Copilot are documented here.
 
+## [2.2.0] - 2026-08-24
+
+### Added
+
+- `github_evidence_sync.py` normalizes already-authorized local GitHub JSON exports for issues, pull requests, workflow runs, and releases into a bounded, read-only evidence bundle with stable IDs and explicit blocker signals;
+- `run_state_ledger.py` keeps local, importable fix/decline/escalate/observe decisions and history across mutable evidence updates; declines require an evidence note and escalations require a named human owner;
+- `render_maintainer_dashboard.py` creates a self-contained local dashboard from the bundle and ledger, HTML-escapes imported fields, caps rendered rows, and defaults to ignored `.aipc/` output;
+- offline export fixtures, a focused runbook, two new maintainer-evidence eval prompts, and regression tests covering output confinement, nesting bounds, decision persistence, and HTML escaping.
+
+### Fixed
+
+- `tool_output_compactor.py` now recognizes Python traceback headers and exception lines correctly, preserving their surrounding failure evidence even when a long command output is compacted.
+
+### Safety and accuracy
+
+- the new evidence workflow has no GitHub API client or write capability: it cannot merge, label, close, publish, or act on imported content;
+- JSON exports, ledger files, and generated paths are size/depth/path bounded, and imported fields are treated as untrusted display data rather than executable instructions;
+- a clear ledger or dashboard is explicitly documented as review state, not merge, deployment, security, or release approval.
+
 ## [2.1.2] - 2026-08-24
 
 ### Removed

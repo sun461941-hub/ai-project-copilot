@@ -49,6 +49,28 @@
       }
     },
     {
+      "id": "workflow-router-selects-maintainer-evidence",
+      "argv": [
+        "{python}",
+        "scripts/workflow_router.py",
+        "--prompt",
+        "Normalize a GitHub JSON export and retain evidence ledger decisions without modifying GitHub.",
+        "--format",
+        "json"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 10,
+      "expect": {
+        "exit_code": 0,
+        "stderr_exact": "",
+        "stdout_json_subset": [
+          {
+            "mode": "maintain"
+          }
+        ]
+      }
+    },
+    {
       "id": "model-budget-simulation-keeps-both-attempts",
       "argv": [
         "{python}",

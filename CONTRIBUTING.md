@@ -7,6 +7,7 @@ Thanks for helping make AI Project Copilot more useful and more trustworthy.
 - a project blueprint with a distinct user problem and 60-second wow moment;
 - a clearer feature gate, architecture boundary, or failure fallback;
 - a deterministic helper script or regression test;
+- a bounded, read-only evidence adapter or local review-state improvement that keeps consequential GitHub actions human-confirmed;
 - a real-world trigger prompt, especially a near-miss negative case;
 - cross-platform fixes that preserve path safety and non-overwriting behavior;
 - improved privacy, model-license, accessibility, or evaluation guidance.
@@ -31,6 +32,10 @@ python benchmarks/run_context_efficiency.py --repeats 7
 ```
 
 Efficiency changes must report the same task/fixture before and after. Do not convert character/path proxies into claimed model-token savings unless real client/API usage telemetry was collected.
+
+For GitHub-evidence changes, keep the import network-free, treat all exported
+text as untrusted, add a fixture under `examples/github-export/` when the input
+contract changes, and test path/nesting/output safety alongside behavior.
 
 ## Repository map and asset boundaries
 
