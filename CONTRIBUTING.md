@@ -67,18 +67,19 @@ A blueprint should not claim support, performance, privacy, or licensing that it
 
 ## Maintainer governance
 
-`main` is a review-only integration branch: create a focused branch and Pull
+`main` is a PR-only integration branch: create a focused branch and Pull
 Request rather than pushing a change directly to it. The active repository
-Ruleset requires the stable **CI / gate** check, a current approval, resolved
-review conversations, and code-owner review for critical paths; it also blocks
-force-pushes, branch deletion, and configured bypasses.
+Ruleset requires the stable **CI / gate** check and resolved review
+conversations; it also blocks force-pushes, branch deletion, and bypasses.
+The current single-maintainer mode permits the PR author to merge after those
+checks pass, without requiring a second approval.
 
 `.github/CODEOWNERS` assigns the maintainer to repository governance, release
-packaging, canonical Skill scripts, and preview gateway paths. The active
-Ruleset enforces **Require review from Code Owners** for the matching changes.
-Do not merge, publish, delete, or change
-repository permissions from an agent workflow: leave those actions to an
-explicitly authorized human.
+packaging, canonical Skill scripts, and preview gateway paths. It records
+ownership and can be used to request focused review, but it is not a required
+approval rule in the current single-maintainer mode. Do not merge, publish,
+delete, or change repository permissions from an agent workflow without
+explicit human authorization.
 
 ## Commit style
 
