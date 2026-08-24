@@ -1,5 +1,6 @@
-# Security-, release-, and interface-critical paths require maintainer review.
-# The repository ruleset should enable "Require review from Code Owners" on main.
+# Ownership map for security-, release-, and interface-critical paths.
+# In the current single-maintainer mode it supports focused review requests;
+# the main Ruleset does not require Code Owner approval.
 
 /.github/CODEOWNERS @sun461941-hub
 /.github/workflows/ @sun461941-hub

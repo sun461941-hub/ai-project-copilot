@@ -117,6 +117,6 @@ python tools/package_skill.py skills/ai-project-copilot \
 
 GitHub Actions 中引用 `release` environment 并不自动产生审批；还需要在仓库 Settings → Environments → release 中配置 Required reviewers。
 
-`main` 已通过 active Ruleset 强制走 PR、`CI / gate`、代码所有者审查、会话解决，并禁止 force-push、删除分支和配置的绕过；`release` Environment 已要求人工审批且管理员不能绕过。文档与 GitHub 设置会一起维护。
+`main` 已通过 active Ruleset 强制走 PR、`CI / gate` 与会话解决，并禁止 force-push、删除分支和绕过。当前为单维护者模式：PR 作者可在检查通过后自行合并，不要求代码所有者或第二位审批者；`release` Environment 仍要求人工审批且管理员不能绕过。文档与 GitHub 设置会一起维护。
 
 正式发布还要求：已签名的 annotated SemVer Tag、Tag 对应提交已进入 `main`、完整的 canonical/Preview/打包烟测，以及 GitHub 生成的构建 Attestation、CycloneDX SBOM 和 SHA-256 清单。它们增强可追溯性，但不取代人工发布审批。

@@ -13,7 +13,7 @@ All notable changes to AI Project Copilot are documented here.
 
 ### Added
 
-- a stable `CI / gate` job, package extraction smoke test, and critical-path `CODEOWNERS` boundary for a GitHub Ruleset to enforce;
+- a stable `CI / gate` job, package extraction smoke test, and critical-path `CODEOWNERS` ownership map for focused review;
 - a copy-paste [three-minute offline demo](DEMO.md) showing evidence import, blocker detection, explicit local escalation, and dashboard generation;
 - a checked-in vector preview of the fixture dashboard, labeled as a deterministic preview rather than a live view or browser screenshot;
 - a machine validator and canonical catalog for independently reviewed real-model semantic Eval bundles, without inventing a semantic result;
