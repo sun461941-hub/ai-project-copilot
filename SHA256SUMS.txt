@@ -1,2 +1,2 @@
-0b03497094d3ede14ac6f5c6ad425d0732e97d476af938ce879eab14521af3ea  ai-project-copilot-multi-interface-upgrade/MANIFEST.json
-1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd  ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+601292f48560538c953d46b7599560497a4c27df8c88cace50a7075719d3c3ec  ai-project-copilot-multi-interface-upgrade/MANIFEST.json
+45385d6d5c98d79856ce489f1824c200be9126e3c60fe87d3cff3cf5b1907bac  ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch

@@ -193,6 +193,12 @@ class WorkflowHardeningTests(unittest.TestCase):
         self.assertGreaterEqual(text.count("timeout-minutes:"), 2)
         self.assertIn("Runtime diagnostics", text)
         self.assertIn("retention-days:", text)
+        self.assertIn("gate:", text)
+        self.assertIn("needs: [test, package]", text)
+        self.assertIn('test "$TEST_RESULT" = "success"', text)
+        self.assertIn('test "$PACKAGE_RESULT" = "success"', text)
+        self.assertIn("Smoke-test packaged skill", text)
+        self.assertIn("Verify preview patch applies", text)
 
     def test_release_is_manual_and_uses_release_environment(self):
         text = (ROOT / ".github" / "workflows" / "release.yml").read_text(
@@ -206,28 +212,22 @@ class WorkflowHardeningTests(unittest.TestCase):
         self.assertIn("contents: read", text)
 
 
-class GatewayPatcherTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.mod = load_module(
-            "fix4_gateway_patcher",
-            ROOT / "tools" / "apply_fix4_gateway_patch.py",
-        )
+class RetiredRepairKitTests(unittest.TestCase):
+    def test_superseded_gateway_patcher_is_not_in_current_worktree(self):
+        self.assertFalse((ROOT / "tools" / "apply_fix4_gateway_patch.py").exists())
 
-    def test_patcher_is_fail_closed_and_idempotent_on_known_blocks(self):
-        source = "\n\n".join(
-            old for old, _new, _label in self.mod._replacements()
-        )
-        patched, changed = self.mod.patch_text(source)
-        self.assertTrue(changed)
-        self.assertIn(self.mod.MARKER, patched)
-        patched_again, changed_again = self.mod.patch_text(patched)
-        self.assertFalse(changed_again)
-        self.assertEqual(patched, patched_again)
-
-    def test_partial_unknown_source_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "source has drifted"):
-            self.mod.patch_text("def unrelated():\n    pass\n")
+    def test_codeowners_cover_critical_automation_paths(self):
+        owners = (ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
+        for path in (
+            "/.github/workflows/",
+            "/tools/package_skill.py",
+            "/skills/ai-project-copilot/scripts/model_budget_autopilot.py",
+            "/skills/ai-project-copilot/scripts/model_budget_gateway.py",
+            "/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py",
+            "/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py",
+            "/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
+        ):
+            self.assertIn(path, owners)
 
 
 if __name__ == "__main__":

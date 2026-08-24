@@ -77,6 +77,11 @@ jobs:
           ai-project-copilot-multi-interface-upgrade/package_tests
           ai-project-copilot-multi-interface-upgrade/payload
 
+      - name: Verify preview patch applies
+        run: >-
+          git apply --check --whitespace=error
+          ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+
   package:
     name: Build distributable skill
     needs: test
@@ -111,6 +116,14 @@ jobs:
           p=Path('dist/ai-project-copilot.skill.zip');
           Path('dist/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n', encoding='utf-8')"
 
+      - name: Smoke-test packaged skill
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          unzip -q dist/ai-project-copilot.skill.zip -d "$smoke_dir"
+          python tools/validate_skill.py "$smoke_dir/ai-project-copilot"
+          python "$smoke_dir/ai-project-copilot/scripts/run_skill_evals.py" --format json
+
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -120,3 +133,20 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
+
+  gate:
+    name: gate
+    needs: [test, package]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require all CI evidence
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+        shell: bash
+        run: |
+          test "$TEST_RESULT" = "success"
+          test "$PACKAGE_RESULT" = "success"

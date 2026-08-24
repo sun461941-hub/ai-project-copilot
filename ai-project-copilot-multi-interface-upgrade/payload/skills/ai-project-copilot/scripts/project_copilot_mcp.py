@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, BinaryIO, Mapping, TextIO
 
 from project_copilot_core import (
     CopilotEngine,
@@ -31,6 +31,7 @@ CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
 CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
 SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 MAX_MESSAGE_BYTES = 1024 * 1024
+MESSAGE_DRAIN_CHUNK_BYTES = 64 * 1024
 MAX_JSON_NESTING = 256
 
 
@@ -239,22 +240,47 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def serve_stdio(adapter: MCPAdapter) -> int:
+def _write_response(output: TextIO, response: dict[str, Any]) -> None:
+    output.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
+    output.flush()
+
+
+def _drain_to_newline(source: BinaryIO) -> None:
+    """Discard the remainder of one rejected oversized frame.
+
+    ``readline(limit)`` returns a prefix without consuming the line terminator
+    when a client exceeds the limit.  Draining through that terminator keeps the
+    next JSON-RPC frame aligned instead of turning one bad request into many
+    parse errors.
+    """
     while True:
-        encoded = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
+        remainder = source.readline(MESSAGE_DRAIN_CHUNK_BYTES)
+        if not remainder or remainder.endswith(b"\n"):
+            return
+
+
+def serve_stdio(
+    adapter: MCPAdapter,
+    input_stream: BinaryIO | None = None,
+    output_stream: TextIO | None = None,
+) -> int:
+    source = input_stream if input_stream is not None else sys.stdin.buffer
+    output = output_stream if output_stream is not None else sys.stdout
+    while True:
+        encoded = source.readline(MAX_MESSAGE_BYTES + 1)
         if not encoded:
             break
         if len(encoded) > MAX_MESSAGE_BYTES:
+            if not encoded.endswith(b"\n"):
+                _drain_to_newline(source)
             response = _error(None, -32600, "Invalid Request", "message exceeds size limit")
-            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-            sys.stdout.flush()
+            _write_response(output, response)
             continue
         try:
             raw = encoded.decode("utf-8").strip()
         except UnicodeDecodeError as exc:
             response = _error(None, -32700, "Parse error", str(exc))
-            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-            sys.stdout.flush()
+            _write_response(output, response)
             continue
         if not raw:
             continue
@@ -272,8 +298,7 @@ def serve_stdio(adapter: MCPAdapter) -> int:
             print(f"[aipc-mcp] internal error: {exc}", file=sys.stderr)
             response = _error(None, -32603, "Internal error")
         if response is not None:
-            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-            sys.stdout.flush()
+            _write_response(output, response)
     return 0
 
 

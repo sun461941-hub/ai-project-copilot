@@ -2,6 +2,24 @@
 
 All notable changes to AI Project Copilot are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- canonical Gateway serialization now detects self-referential Python containers before encoding and reports a controlled cyclic-container error;
+- the Preview MCP adapter drains the remainder of one oversized line before reading the next JSON-RPC frame, preventing protocol desynchronization;
+- run-state ledger writes now hold a repository-confined cross-process lock, carry monotonic revisions, reject stale revision writes, and record decision timestamp/actor/optional source commit provenance.
+
+### Added
+
+- a stable `CI / gate` job, package extraction smoke test, and critical-path `CODEOWNERS` boundary for a GitHub Ruleset to enforce;
+- a copy-paste [three-minute offline demo](DEMO.md) showing evidence import, blocker detection, explicit local escalation, and dashboard generation;
+- Core / Advanced / Preview product boundary guidance in both public READMEs and the Skill.
+
+### Removed
+
+- the now-superseded write-capable `tools/apply_fix4_gateway_patch.py` repair kit; its provenance remains in Git history and canonical regression tests cover the real source.
+
 ## [2.2.1] - 2026-08-24
 
 ### Fixed

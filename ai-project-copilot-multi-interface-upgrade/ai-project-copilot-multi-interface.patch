@@ -265,13 +265,14 @@ new file mode 100644
 index 0000000..bfde3bf
 --- /dev/null
 +++ b/skills/ai-project-copilot/scripts/project_copilot.py
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,137 @@
 +#!/usr/bin/env python3
 +"""Local CLI adapter for the AI Project Copilot multi-interface core."""
 +
 +from __future__ import annotations
 +
 +import argparse
++import io
 +import json
 +import re
 +import sys
@@ -1447,7 +1448,7 @@ new file mode 100644
 index 0000000..fa06337
 --- /dev/null
 +++ b/skills/ai-project-copilot/scripts/project_copilot_mcp.py
-@@ -0,0 +1,303 @@
+@@ -0,0 +1,328 @@
 +#!/usr/bin/env python3
 +"""MCP stdio adapter for AI Project Copilot.
 +
@@ -1462,7 +1463,7 @@ index 0000000..fa06337
 +import json
 +import sys
 +from pathlib import Path
-+from typing import Any, Mapping
++from typing import Any, BinaryIO, Mapping, TextIO
 +
 +from project_copilot_core import (
 +    CopilotEngine,
@@ -1481,6 +1482,7 @@ index 0000000..fa06337
 +CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
 +SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 +MAX_MESSAGE_BYTES = 1024 * 1024
++MESSAGE_DRAIN_CHUNK_BYTES = 64 * 1024
 +MAX_JSON_NESTING = 256
 +
 +
@@ -1689,22 +1691,47 @@ index 0000000..fa06337
 +    return parser
 +
 +
-+def serve_stdio(adapter: MCPAdapter) -> int:
++def _write_response(output: TextIO, response: dict[str, Any]) -> None:
++    output.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
++    output.flush()
++
++
++def _drain_to_newline(source: BinaryIO) -> None:
++    """Discard the remainder of one rejected oversized frame.
++
++    ``readline(limit)`` returns a prefix without consuming the line terminator
++    when a client exceeds the limit.  Draining through that terminator keeps the
++    next JSON-RPC frame aligned instead of turning one bad request into many
++    parse errors.
++    """
 +    while True:
-+        encoded = sys.stdin.buffer.readline(MAX_MESSAGE_BYTES + 1)
++        remainder = source.readline(MESSAGE_DRAIN_CHUNK_BYTES)
++        if not remainder or remainder.endswith(b"\n"):
++            return
++
++
++def serve_stdio(
++    adapter: MCPAdapter,
++    input_stream: BinaryIO | None = None,
++    output_stream: TextIO | None = None,
++) -> int:
++    source = input_stream if input_stream is not None else sys.stdin.buffer
++    output = output_stream if output_stream is not None else sys.stdout
++    while True:
++        encoded = source.readline(MAX_MESSAGE_BYTES + 1)
 +        if not encoded:
 +            break
 +        if len(encoded) > MAX_MESSAGE_BYTES:
++            if not encoded.endswith(b"\n"):
++                _drain_to_newline(source)
 +            response = _error(None, -32600, "Invalid Request", "message exceeds size limit")
-+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-+            sys.stdout.flush()
++            _write_response(output, response)
 +            continue
 +        try:
 +            raw = encoded.decode("utf-8").strip()
 +        except UnicodeDecodeError as exc:
 +            response = _error(None, -32700, "Parse error", str(exc))
-+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-+            sys.stdout.flush()
++            _write_response(output, response)
 +            continue
 +        if not raw:
 +            continue
@@ -1722,8 +1749,7 @@ index 0000000..fa06337
 +            print(f"[aipc-mcp] internal error: {exc}", file=sys.stderr)
 +            response = _error(None, -32603, "Internal error")
 +        if response is not None:
-+            sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
-+            sys.stdout.flush()
++            _write_response(output, response)
 +    return 0
 +
 +
@@ -1756,7 +1782,7 @@ new file mode 100644
 index 0000000..c8368bf
 --- /dev/null
 +++ b/tests/test_multi_interface_gateway.py
-@@ -0,0 +1,283 @@
+@@ -0,0 +1,303 @@
 +from __future__ import annotations
 +
 +import json
@@ -1781,7 +1807,9 @@ index 0000000..c8368bf
 +    MODERN_PROTOCOL,
 +    PROTOCOL_META_KEY,
 +    SERVER_INFO_META_KEY,
++    MAX_MESSAGE_BYTES,
 +    MCPAdapter,
++    serve_stdio,
 +)
 +
 +
@@ -1994,6 +2022,22 @@ index 0000000..c8368bf
 +            listed = adapter.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
 +            assert listed is not None
 +            self.assertIn("tools", listed["result"])
++
++    def test_mcp_oversized_line_is_drained_before_next_valid_request(self) -> None:
++        valid = json.dumps(
++            {"jsonrpc": "2.0", "id": 77, "method": "ping", "params": modern_meta()}
++        ).encode("utf-8")
++        source = io.BytesIO((b"x" * (MAX_MESSAGE_BYTES + 32)) + b"\n" + valid + b"\n")
++        output = io.StringIO()
++
++        self.assertEqual(0, serve_stdio(MCPAdapter(self.engine), source, output))
++
++        responses = [json.loads(line) for line in output.getvalue().splitlines()]
++        self.assertEqual(2, len(responses))
++        self.assertEqual(-32600, responses[0]["error"]["code"])
++        self.assertIn("size limit", responses[0]["error"]["data"])
++        self.assertEqual(77, responses[1]["id"])
++        self.assertEqual("complete", responses[1]["result"]["resultType"])
 +
 +    def test_rest_requires_bearer_when_configured_and_runs_capability(self) -> None:
 +        server = CopilotHTTPServer(("127.0.0.1", 0), self.engine, "test-secret", request_timeout=2, max_concurrent_requests=4)

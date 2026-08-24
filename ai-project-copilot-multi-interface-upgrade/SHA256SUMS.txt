@@ -1,9 +1,9 @@
-0b03497094d3ede14ac6f5c6ad425d0732e97d476af938ce879eab14521af3ea  ./MANIFEST.json
+601292f48560538c953d46b7599560497a4c27df8c88cace50a7075719d3c3ec  ./MANIFEST.json
 752c86ef1e0983c04b910a0ce646e600d5c1c0c1fc49cca4b27ed6b382aacd8f  ./PATCH_NOTES.zh-CN.md
 9c5d6295dfd7bd5f9fa1bd29bdb02ee3255fae9088c49352adb34db615587c1a  ./README_FIRST.txt
 78e947d9b250ef2509c514dde3569b2a8ab1c45c4a873ca15b4f608b99cc4ced  ./SKILL_INSERT.md
 3cf6c5c3395f1c43ae22f7cc342f1d04dfd20914b2200a5df7ee26eb1d90ba07  ./VERIFICATION_REPORT.zh-CN.md
-1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd  ./ai-project-copilot-multi-interface.patch
+45385d6d5c98d79856ce489f1824c200be9126e3c60fe87d3cff3cf5b1907bac  ./ai-project-copilot-multi-interface.patch
 2a3ac6adc99f92af3a4efd7ed5b56329dec17550a04738d144c1b2bdde602f75  ./apply_multi_interface_patch.py
 b33d0f169b0deaf85237d886a86df3f82acbd91eb1e1247e310358309d41a2df  ./package_tests/test_installer.py
 88c68d3afbbf326fe90fd4bc377d836b049d1b265672751450c16d1a2ff63d04  ./payload/skills/ai-project-copilot/assets/templates/project-copilot-api-request.json
@@ -12,5 +12,5 @@ a625cc9cccd01bc58375ca254307bb74470c019f303ccfd1e54227141d641b3e  ./payload/skil
 f1f44c086b21ef290fff6414cd40c59d7446344c997def738e595b8ccb06fb86  ./payload/skills/ai-project-copilot/scripts/project_copilot.py
 ac3b0b3a1177bca3426f9b5926605049789f77272cc12d6ab72000949b3871f4  ./payload/skills/ai-project-copilot/scripts/project_copilot_api.py
 a86f701a2aae511597c077d0ac05661be28f20435dbddafc7500b56ff6c517f3  ./payload/skills/ai-project-copilot/scripts/project_copilot_core.py
-bf4f89c28135f831abc687928aa5ee5a9a0b8aed53729fda09774ba1acad5696  ./payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
-260797f07bf92176085ea7e9965396f7de7defcfaa69f4138b0c6efd2abe794f  ./payload/tests/test_multi_interface_gateway.py
+6b1672e01144580e969033351c5141a2c1069dededb8ca2c7b543f467800f61b  ./payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py
+9a3ba88fc65edce35b88bd5d13b668621a53aa3f0a43713a2fd598aa91d9d2b5  ./payload/tests/test_multi_interface_gateway.py

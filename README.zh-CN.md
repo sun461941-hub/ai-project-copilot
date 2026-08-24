@@ -1,21 +1,37 @@
 # AI Project Copilot
 
-一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
+一个以证据为先的可移植 Agent Skill，主线是代码库工程与开源维护：理解仓库、审查风险、准备发布、检查供应链，并把结论落为可复核的确定性证据。
 
 > 当前可安装 Skill 版本为 2.2.1；多接口 Gateway 仍是独立的预览兼容包，不代表主 Skill 的版本。正式版本号以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
 
-## 核心能力
+## 30 秒理解
+
+它不是提示词集合，也不会擅自合并、发布、删文件或改权限。它先用最小必要上下文理解仓库，再用 Diff、测试、日志、CI 和本地证据台账支持结论；后果性操作始终保留给人工。
+
+最快的体验是[三分钟本地 Demo](DEMO.md)：导入仓库内置的 GitHub JSON 样例，看到两个 blocker，记录一条本地升级决策，并生成静态看板。整个过程不调用 GitHub API，也不会改变 GitHub 状态。
+
+## 产品边界
+
+### Core：默认主线
 
 | 能力通道 | 主要用途 | 对应实现 |
 |---|---|---|
 | Discover | 映射陌生仓库、生成受控的 Agent 指令草案、审计本地 Skill Stack | `repo_context.py`、`ai_ready_bootstrap.py`、`skill_stack_audit.py` |
-| Launch / Retrofit | 从模糊想法选择可演示的 AI 垂直切片，或为现有产品增加高价值 AI 能力 | 24 个蓝图、`rank_blueprints.py`、架构参考 |
 | Maintain | 对 Issue 做确定性预分诊、改善维护者工作流，并保留显式证据决策 | `maintainer_triage.py`、`github_evidence_sync.py`、`run_state_ledger.py` |
 | Review | 对变更风险排序，并验证 review thread 是否收敛 | `change_risk.py`、`review_convergence.py` |
 | Release | 给出 SemVer 建议、发布说明草案和迁移阻断项 | `release_intel.py` |
 | Secure | 检查 GitHub Actions、MCP 配置、权限、依赖引用和 Skill 完整性 | `supply_chain_guard.py`、`mcp_config_audit.py` |
 | Quality | 验证 eval 数据并运行确定性命令用例 | `run_skill_evals.py` |
-| Budget | 使用 SQLite 做模型预算路由，并通过 OpenAI Responses Gateway 执行受控请求 | `model_budget_autopilot.py`、`model_budget_gateway.py` |
+
+### Advanced：按需启用
+
+- Context Accelerator：减少无效侦察和上下文膨胀；字符/路径指标不是 Token 节省声明。
+- Model Budget：面向应用自有的模型成本策略；CI 的注入式 transport 不代表真实 Provider 已验证。
+- Launch / Retrofit：保留为产品设计资料和垂直切片参考，不是主线维护产品的自动构建器。
+
+### Preview：兼容包
+
+CLI / REST / MCP 位于 [`ai-project-copilot-multi-interface-upgrade/`](ai-project-copilot-multi-interface-upgrade/)，是独立校验的 Preview overlay，不等同于默认安装路径，也不声称所有客户端兼容。
 
 ## 只读 GitHub 证据与维护台账
 
@@ -33,6 +49,8 @@ python skills/ai-project-copilot/scripts/run_state_ledger.py sync \
 ```
 
 `decline` 必须记录证据说明，`escalate` 必须指定人工负责人。静态看板默认写入已忽略的 `.aipc/` 目录，并会 HTML 转义所有导入字段；清空的看板只表示本地台账没有待处理项，不等同于合并、安全、部署或发布批准。详见[证据与台账说明](skills/ai-project-copilot/references/github-evidence-ledger.md)。
+
+内置 Eval 证明数据集和确定性命令行为，不证明模型一定会正确触发或语义判断。真实模型基线应按[语义评测协议](docs/semantic-eval-protocol.md)使用固定任务、三次重复和独立 Rubric 执行；在有真实脱敏运行记录前不发布语义成功率。
 
 ## 快速验证
 
@@ -55,11 +73,11 @@ python tools/package_skill.py skills/ai-project-copilot \
 推荐流程：
 
 1. 在 Working Copy 中 Pull 最新 `main`，确认 Changes 为空。
-2. 创建独立分支，或先把引导补丁提交到 `main` 后立即运行一次手动工作流。
+2. 创建独立分支；不要直接向 `main` 推送。
 3. 导入补丁 ZIP 时选择 **Extract to existing repository**，目标为仓库根目录。
 4. 检查 Changes，确保没有多余的外层目录、`.git`、密钥、缓存或大面积删除。
 5. 推送后通过 GitHub Actions 运行完整验证。
-6. 只在修复分支全绿后创建 Pull Request 并合并。
+6. 只在修复分支全绿、PR 获得所需批准后合并。
 
 ## 仓库维护地图
 
@@ -88,3 +106,5 @@ python tools/package_skill.py skills/ai-project-copilot \
 - 发布包与 SHA-256
 
 GitHub Actions 中引用 `release` environment 并不自动产生审批；还需要在仓库 Settings → Environments → release 中配置 Required reviewers。
+
+`main` 应通过 Ruleset 强制走 PR、`CI / gate`、代码所有者审查、会话解决、禁止 force-push 和删除分支；文档中的规则只有在 GitHub 设置中开启后才真正生效。

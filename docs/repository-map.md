@@ -18,9 +18,11 @@ files.
 
 | Location | Purpose |
 | --- | --- |
-| [`.github/workflows/`](../.github/workflows/) | Read-only CI and the manually dispatched release workflow. |
+| [`.github/workflows/`](../.github/workflows/) | Read-only CI (including the stable `CI / gate`) and the manually dispatched release workflow. |
+| [`.github/CODEOWNERS`](../.github/CODEOWNERS) | Intended reviewer boundary for workflows, packaging, budget controls, and preview gateway adapters. It is enforced only after the GitHub Ruleset requires code-owner review. |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Public release history. Update it before creating a release tag. |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`SECURITY.md`](../SECURITY.md), [`ROADMAP.md`](../ROADMAP.md) | Contribution, security, and project-governance contracts. |
+| [`DEMO.md`](../DEMO.md), [`semantic-eval-protocol.md`](semantic-eval-protocol.md) | The fixed first-success journey and the separate real-model evaluation contract. |
 | [`README.md`](../README.md) and [`README.zh-CN.md`](../README.zh-CN.md) | Public entry points. Keep version and release guidance aligned with the changelog and published tag. |
 
 ## Active compatibility package

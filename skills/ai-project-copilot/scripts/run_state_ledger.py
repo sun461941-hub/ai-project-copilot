@@ -10,13 +10,17 @@ stable when an item's mutable title or status changes.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import datetime as dt
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 SCHEMA_VERSION = 1
@@ -26,6 +30,8 @@ DEFAULT_LEDGER = Path(".aipc/maintainer-ledger.json")
 DECISIONS = ("unreviewed", "fix", "decline", "escalate", "observe")
 DECISION_STATUSES = ("open", "resolved")
 TERMINAL_EVIDENCE_STATUSES = {"closed", "merged", "published", "success"}
+LOCK_TIMEOUT_SECONDS = 5.0
+LOCK_RETRY_SECONDS = 0.05
 
 
 def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
@@ -84,6 +90,91 @@ def _create_parent(root: Path, parent: Path) -> None:
             raise ValueError(f"ledger parent is not a directory: {current}")
 
 
+@contextmanager
+def _ledger_lock(root: Path, ledger_path: Path) -> Iterator[Path]:
+    """Take a repository-confined cross-process lock for one ledger mutation.
+
+    Atomic replacement protects an individual write, but it cannot prevent two
+    agents from independently reading the same revision and overwriting each
+    other's decisions.  An exclusive sibling lock serializes the full
+    read-modify-write transaction on Windows, macOS, and Linux.
+    """
+    root = root.expanduser().resolve()
+    target = _inside(root, ledger_path, "ledger path")
+    _create_parent(root, target.parent)
+    lock_path = _inside(root, target.with_name(f".{target.name}.lock"), "ledger lock path")
+    deadline = time.monotonic() + LOCK_TIMEOUT_SECONDS
+    fd: int | None = None
+    while fd is None:
+        if lock_path.is_symlink():
+            raise ValueError(f"refusing symlinked ledger lock: {lock_path}")
+        if lock_path.exists() and not lock_path.is_file():
+            raise ValueError(f"ledger lock path must be a regular file: {lock_path}")
+        try:
+            fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                raise ValueError(f"ledger is locked by another process: {lock_path}")
+            time.sleep(LOCK_RETRY_SECONDS)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps({"pid": os.getpid(), "created_at": _utc_timestamp()}) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        yield target
+    finally:
+        if lock_path.is_symlink() or not lock_path.is_file():
+            raise ValueError(f"ledger lock changed while held: {lock_path}")
+        try:
+            lock_path.unlink()
+        except OSError as exc:
+            raise ValueError(f"could not release ledger lock: {lock_path}") from exc
+
+
+def _utc_timestamp() -> str:
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _normalized_actor(value: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError("decision actor must be a non-empty string")
+    actor = " ".join(value.split())
+    if not actor:
+        raise ValueError("decision actor must be a non-empty string")
+    if len(actor) > 160 or any(ord(character) < 32 or ord(character) == 127 for character in actor):
+        raise ValueError("decision actor must be a safe string of at most 160 characters")
+    return actor
+
+
+def _normalized_source_commit(value: str) -> str | None:
+    if not isinstance(value, str):
+        raise ValueError("source commit must be a 7-64 character hexadecimal commit ID")
+    source_commit = value.strip()
+    if not source_commit:
+        return None
+    if not re.fullmatch(r"[0-9a-fA-F]{7,64}", source_commit):
+        raise ValueError("source commit must be a 7-64 character hexadecimal commit ID")
+    return source_commit.lower()
+
+
+def _expected_revision(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("expected revision must be a non-negative integer")
+    return value
+
+
+def _require_expected_revision(data: dict[str, Any], expected_revision: int | None) -> int:
+    revision = data.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise ValueError("invalid run-state ledger revision")
+    expected_revision = _expected_revision(expected_revision)
+    if expected_revision is not None and revision != expected_revision:
+        raise ValueError(f"ledger revision conflict: expected {expected_revision}, found {revision}")
+    return revision
+
+
 def _read_json(path: Path, label: str) -> Any:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"{label} must be a regular non-symlink file: {path}")
@@ -105,7 +196,7 @@ def _read_json(path: Path, label: str) -> Any:
 
 
 def _blank_ledger() -> dict[str, Any]:
-    return {"schema_version": SCHEMA_VERSION, "entries": {}, "bundle_sha256": None}
+    return {"schema_version": SCHEMA_VERSION, "revision": 0, "entries": {}, "bundle_sha256": None}
 
 
 def _load_ledger(path: Path) -> dict[str, Any]:
@@ -115,7 +206,15 @@ def _load_ledger(path: Path) -> dict[str, Any]:
     entries = raw.get("entries")
     if not isinstance(entries, dict) or not all(isinstance(key, str) and isinstance(value, dict) for key, value in entries.items()):
         raise ValueError("invalid run-state ledger entries")
-    return {"schema_version": SCHEMA_VERSION, "entries": entries, "bundle_sha256": raw.get("bundle_sha256")}
+    revision = raw.get("revision", 0)
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise ValueError("invalid run-state ledger revision")
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "revision": revision,
+        "entries": entries,
+        "bundle_sha256": raw.get("bundle_sha256"),
+    }
 
 
 def _write(root: Path, path: Path, data: dict[str, Any], overwrite: bool) -> Path:
@@ -160,8 +259,11 @@ def _write(root: Path, path: Path, data: dict[str, Any], overwrite: bool) -> Pat
 
 
 def initialize(root: Path, ledger: Path = DEFAULT_LEDGER) -> dict[str, Any]:
-    path = _write(root, ledger, _blank_ledger(), overwrite=False)
-    return {"ledger": path.relative_to(root.expanduser().resolve()).as_posix(), "created": True}
+    root = root.expanduser().resolve()
+    ledger_path = _inside(root, ledger, "ledger path")
+    with _ledger_lock(root, ledger_path):
+        path = _write(root, ledger_path, _blank_ledger(), overwrite=False)
+    return {"ledger": path.relative_to(root).as_posix(), "created": True, "revision": 0}
 
 
 def _bundle(root: Path, path: Path) -> tuple[dict[str, Any], str]:
@@ -197,37 +299,46 @@ def _new_entry(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def sync(root: Path, ledger: Path, bundle: Path) -> dict[str, Any]:
+def sync(
+    root: Path,
+    ledger: Path,
+    bundle: Path,
+    *,
+    expected_revision: int | None = None,
+) -> dict[str, Any]:
     root = root.expanduser().resolve()
     ledger_path = _inside(root, ledger, "ledger path")
-    data = _load_ledger(ledger_path)
-    imported, digest = _bundle(root, bundle)
-    entries = data["entries"]
-    assert isinstance(entries, dict)
-    seen: set[str] = set()
-    created = 0
-    updated = 0
-    for record in imported["evidence"]:
-        evidence_id = str(record["evidence_id"])
-        seen.add(evidence_id)
-        existing = entries.get(evidence_id)
-        if not isinstance(existing, dict):
-            entries[evidence_id] = _new_entry(record)
-            created += 1
-            continue
-        existing["evidence"] = record
-        existing["missing_from_latest_bundle"] = False
-        existing.setdefault("decision", "unreviewed")
-        existing.setdefault("decision_status", "open")
-        existing.setdefault("owner", None)
-        existing.setdefault("note", "")
-        existing.setdefault("history", [])
-        updated += 1
-    for evidence_id, entry in entries.items():
-        if evidence_id not in seen and isinstance(entry, dict):
-            entry["missing_from_latest_bundle"] = True
-    data["bundle_sha256"] = digest
-    _write(root, ledger, data, overwrite=True)
+    with _ledger_lock(root, ledger_path):
+        data = _load_ledger(ledger_path)
+        revision = _require_expected_revision(data, expected_revision)
+        imported, digest = _bundle(root, bundle)
+        entries = data["entries"]
+        assert isinstance(entries, dict)
+        seen: set[str] = set()
+        created = 0
+        updated = 0
+        for record in imported["evidence"]:
+            evidence_id = str(record["evidence_id"])
+            seen.add(evidence_id)
+            existing = entries.get(evidence_id)
+            if not isinstance(existing, dict):
+                entries[evidence_id] = _new_entry(record)
+                created += 1
+                continue
+            existing["evidence"] = record
+            existing["missing_from_latest_bundle"] = False
+            existing.setdefault("decision", "unreviewed")
+            existing.setdefault("decision_status", "open")
+            existing.setdefault("owner", None)
+            existing.setdefault("note", "")
+            existing.setdefault("history", [])
+            updated += 1
+        for evidence_id, entry in entries.items():
+            if evidence_id not in seen and isinstance(entry, dict):
+                entry["missing_from_latest_bundle"] = True
+        data["bundle_sha256"] = digest
+        data["revision"] = revision + 1
+        _write(root, ledger_path, data, overwrite=True)
     return {
         "created": created,
         "updated": updated,
@@ -236,6 +347,7 @@ def sync(root: Path, ledger: Path, bundle: Path) -> dict[str, Any]:
         ),
         "ledger": ledger_path.relative_to(root).as_posix(),
         "bundle_sha256": digest,
+        "revision": revision + 1,
     }
 
 
@@ -247,6 +359,10 @@ def decide(
     decision_status: str,
     owner: str = "",
     note: str = "",
+    *,
+    actor: str = "local-maintainer",
+    source_commit: str = "",
+    expected_revision: int | None = None,
 ) -> dict[str, Any]:
     if decision not in DECISIONS or decision == "unreviewed":
         raise ValueError("decision must be fix, decline, escalate, or observe")
@@ -258,34 +374,44 @@ def decide(
         raise ValueError("escalate decisions require a human owner")
     if decision == "decline" and not note:
         raise ValueError("decline decisions require a concise evidence note")
+    actor = _normalized_actor(actor)
+    source_commit = _normalized_source_commit(source_commit)
     root = root.expanduser().resolve()
     path = _inside(root, ledger, "ledger path")
-    data = _load_ledger(path)
-    entries = data["entries"]
-    assert isinstance(entries, dict)
-    entry = entries.get(evidence_id)
-    if not isinstance(entry, dict):
-        raise ValueError(f"unknown evidence ID: {evidence_id}")
-    history = entry.setdefault("history", [])
-    if not isinstance(history, list):
-        raise ValueError("invalid decision history")
-    sequence = len(history) + 1
-    event = {
-        "event_id": hashlib.sha256(
-            f"{evidence_id}|{sequence}|{decision}|{decision_status}|{owner}|{note}".encode("utf-8")
-        ).hexdigest()[:20],
-        "sequence": sequence,
-        "decision": decision,
-        "decision_status": decision_status,
-        "owner": owner or None,
-        "note": note,
-    }
-    history.append(event)
-    entry["decision"] = decision
-    entry["decision_status"] = decision_status
-    entry["owner"] = owner or None
-    entry["note"] = note
-    _write(root, ledger, data, overwrite=True)
+    with _ledger_lock(root, path):
+        data = _load_ledger(path)
+        revision = _require_expected_revision(data, expected_revision)
+        entries = data["entries"]
+        assert isinstance(entries, dict)
+        entry = entries.get(evidence_id)
+        if not isinstance(entry, dict):
+            raise ValueError(f"unknown evidence ID: {evidence_id}")
+        history = entry.setdefault("history", [])
+        if not isinstance(history, list):
+            raise ValueError("invalid decision history")
+        sequence = len(history) + 1
+        next_revision = revision + 1
+        event = {
+            "event_id": hashlib.sha256(
+                f"{evidence_id}|{sequence}|{next_revision}|{decision}|{decision_status}|{owner}|{note}".encode("utf-8")
+            ).hexdigest()[:20],
+            "sequence": sequence,
+            "ledger_revision": next_revision,
+            "recorded_at": _utc_timestamp(),
+            "actor": actor,
+            "source_commit": source_commit,
+            "decision": decision,
+            "decision_status": decision_status,
+            "owner": owner or None,
+            "note": note,
+        }
+        history.append(event)
+        entry["decision"] = decision
+        entry["decision_status"] = decision_status
+        entry["owner"] = owner or None
+        entry["note"] = note
+        data["revision"] = next_revision
+        _write(root, path, data, overwrite=True)
     return {"evidence_id": evidence_id, **event}
 
 
@@ -321,6 +447,7 @@ def status(root: Path, ledger: Path) -> dict[str, Any]:
             unreviewed.append(item)
     return {
         "schema_version": SCHEMA_VERSION,
+        "revision": data.get("revision"),
         "ledger_entries": len(entries),
         "pending": pending,
         "unreviewed": unreviewed,
@@ -333,6 +460,7 @@ def _markdown(report: dict[str, Any]) -> str:
     lines = [
         "# Maintainer run-state ledger",
         "",
+        f"- Revision: {report['revision']}",
         f"- Entries: {report['ledger_entries']}",
         f"- Pending fix/escalation decisions: {len(report['pending'])}",
         f"- Unreviewed non-terminal evidence: {len(report['unreviewed'])}",
@@ -360,12 +488,16 @@ def build_parser() -> argparse.ArgumentParser:
         item.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
         if name == "sync":
             item.add_argument("--bundle", type=Path, required=True)
+            item.add_argument("--expected-revision", type=int)
         if name == "decide":
             item.add_argument("--evidence-id", required=True)
             item.add_argument("--decision", choices=DECISIONS[1:], required=True)
             item.add_argument("--status", dest="decision_status", choices=DECISION_STATUSES, default="open")
             item.add_argument("--owner", default="")
             item.add_argument("--note", default="")
+            item.add_argument("--actor", default="local-maintainer")
+            item.add_argument("--source-commit", default="")
+            item.add_argument("--expected-revision", type=int)
         if name == "status":
             item.add_argument("--format", choices=("json", "markdown"), default="markdown")
     return parser
@@ -377,9 +509,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.action == "init":
             result = initialize(args.repo, args.ledger)
         elif args.action == "sync":
-            result = sync(args.repo, args.ledger, args.bundle)
+            result = sync(args.repo, args.ledger, args.bundle, expected_revision=args.expected_revision)
         elif args.action == "decide":
-            result = decide(args.repo, args.ledger, args.evidence_id, args.decision, args.decision_status, args.owner, args.note)
+            result = decide(
+                args.repo,
+                args.ledger,
+                args.evidence_id,
+                args.decision,
+                args.decision_status,
+                args.owner,
+                args.note,
+                actor=args.actor,
+                source_commit=args.source_commit,
+                expected_revision=args.expected_revision,
+            )
         else:
             result = status(args.repo, args.ledger)
     except (OSError, ValueError) as exc:

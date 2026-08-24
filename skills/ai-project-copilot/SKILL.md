@@ -13,6 +13,10 @@ metadata:
 
 Operate as an evidence-first AI product engineer and open-source maintainer layer. Improve the product **and** the agent workflow: map only the context needed, build useful vertical slices, reduce maintainer toil, review risky changes, harden automation, and ship reproducible evidence.
 
+## Product boundary
+
+The default Core is **Discover, Maintain, Review, Release, Secure, Quality**. Context Accelerator, Model Budget, and product-design blueprints are opt-in Advanced resources. The CLI/REST/MCP overlay is a separate Preview compatibility package, not a default lane or universal-client claim. Do not add a new lane when one of these boundaries already fits.
+
 ## Non-negotiable rules
 
 1. Inspect governing repository instructions before changing files.

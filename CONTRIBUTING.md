@@ -65,6 +65,19 @@ A blueprint should not claim support, performance, privacy, or licensing that it
 - Do not include secrets, private traces, third-party model weights, or copyrighted demo assets without permission.
 - Preserve UTF-8, LF line endings, and cross-platform paths.
 
+## Maintainer governance
+
+`main` is a review-only integration branch: create a focused branch and Pull
+Request rather than pushing a change directly to it. The repository Ruleset is
+expected to require the stable **CI / gate** check, a current approval, resolved
+review conversations, and code-owner review for critical paths.
+
+`.github/CODEOWNERS` assigns the maintainer to workflow, packager, budget, and
+preview gateway paths. A code-owner entry documents the intended review boundary;
+it becomes enforceable only when the GitHub Ruleset enables **Require review from
+Code Owners**. Do not merge, publish, delete, or change repository permissions
+from an agent workflow: leave those actions to an explicitly authorized human.
+
 ## Commit style
 
 Clear imperative messages are preferred, for example:
