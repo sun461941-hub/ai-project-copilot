@@ -204,6 +204,35 @@ class MaintainerEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate evidence ID"):
                 self.dashboard._bundle(repo, Path("duplicate.json"))
 
+    def test_sync_uses_fallback_identifiers_and_rejects_duplicate_import_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            exports = Path(temp)
+            issues_path = exports / "issues.json"
+            issues_path.write_text(
+                json.dumps(
+                    [
+                        {"number": None, "id": 101, "title": "First partial export", "state": "open"},
+                        {"number": None, "id": 102, "title": "Second partial export", "state": "open"},
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            bundle = self.syncer.build_bundle(exports)
+            self.assertEqual(["issue:101", "issue:102"], [record["source_id"] for record in bundle["evidence"]])
+            self.assertEqual(2, len({record["evidence_id"] for record in bundle["evidence"]}))
+
+            issues_path.write_text(
+                json.dumps(
+                    [
+                        {"number": None, "id": 101, "title": "Original record", "state": "open"},
+                        {"number": None, "id": 101, "title": "Duplicate record", "state": "open"},
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate evidence ID"):
+                self.syncer.build_bundle(exports)
+
     def test_dashboard_escapes_exported_html_and_keeps_decision_visible(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)

@@ -148,6 +148,23 @@ def _identifier(value: Any, fallback: str) -> str:
     return text or fallback
 
 
+def _record_identifier(item: dict[str, Any], keys: tuple[str, ...], fallback: str = "unknown") -> str:
+    """Choose the first usable GitHub identifier without collapsing null primaries.
+
+    GitHub's list endpoints normally provide both a human-facing ``number`` and
+    an immutable API ``id``. Some partial/hand-authored exports keep the key
+    but set the primary value to ``null``. Treating that null as final would
+    derive the same ``unknown`` identity for unrelated evidence records.
+    """
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, (str, int)) and not isinstance(value, bool):
+            identifier = _identifier(value, "")
+            if identifier:
+                return identifier
+    return fallback
+
+
 def _status(value: Any, fallback: str = "unknown") -> str:
     text = _clean_text(str(value) if value is not None else "", 48).casefold().replace(" ", "-")
     return text if SAFE_STATUS.fullmatch(text) else fallback
@@ -205,7 +222,7 @@ def _record(
 
 
 def _issue(item: dict[str, Any]) -> dict[str, Any]:
-    ident = _identifier(item.get("number", item.get("id")), "unknown")
+    ident = _record_identifier(item, ("number", "id"))
     labels = _labels(item.get("labels"))
     label_tokens = {label.casefold() for label in labels}
     blocker = "explicit blocker/security label" if label_tokens & {"blocker", "critical", "security"} else None
@@ -222,7 +239,7 @@ def _issue(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _pull_request(item: dict[str, Any]) -> dict[str, Any]:
-    ident = _identifier(item.get("number", item.get("id")), "unknown")
+    ident = _record_identifier(item, ("number", "id"))
     merged = bool(item.get("merged")) or bool(item.get("merged_at"))
     status = "merged" if merged else _status(item.get("state"))
     conflict = item.get("mergeable") is False or _status(item.get("mergeable_state"), "") in {"dirty", "blocked"}
@@ -239,7 +256,7 @@ def _pull_request(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _workflow_run(item: dict[str, Any]) -> dict[str, Any]:
-    ident = _identifier(item.get("id", item.get("run_number")), "unknown")
+    ident = _record_identifier(item, ("id", "run_number"))
     conclusion = _status(item.get("conclusion"), "")
     status = conclusion or _status(item.get("status"))
     failed = status in {"failure", "failed", "cancelled", "timed-out", "timed_out", "action_required"}
@@ -255,7 +272,7 @@ def _workflow_run(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _release(item: dict[str, Any]) -> dict[str, Any]:
-    ident = _identifier(item.get("tag_name", item.get("id")), "unknown")
+    ident = _record_identifier(item, ("tag_name", "id"))
     if bool(item.get("draft")):
         status = "draft"
     elif bool(item.get("prerelease")):
@@ -287,6 +304,12 @@ def build_bundle(input_dir: Path) -> dict[str, Any]:
         normalizer = NORMALIZERS[kind]
         evidence.extend(normalizer(item) for item in records)
     evidence.sort(key=lambda item: (str(item["kind"]), str(item["source_id"])))
+    evidence_ids: set[str] = set()
+    for item in evidence:
+        evidence_id = str(item["evidence_id"])
+        if evidence_id in evidence_ids:
+            raise ValueError(f"duplicate evidence ID in import: {evidence_id}")
+        evidence_ids.add(evidence_id)
 
     status_counts: dict[str, dict[str, int]] = {}
     for kind in ("issue", "pull_request", "workflow_run", "release"):

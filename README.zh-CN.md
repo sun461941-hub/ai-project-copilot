@@ -2,7 +2,7 @@
 
 一个可移植的 Agent Skill，用于 AI 产品工程、开源维护、代码库理解、风险审查、发布准备、供应链检查和确定性质量验证。
 
-> 当前可安装 Skill 版本为 2.2.0；多接口 Gateway 仍是独立的预览兼容包，不代表主 Skill 的版本。正式版本号以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
+> 当前可安装 Skill 版本为 2.2.1；多接口 Gateway 仍是独立的预览兼容包，不代表主 Skill 的版本。正式版本号以 Git tag、GitHub Release 和 `CHANGELOG.md` 为准。
 
 ## 核心能力
 

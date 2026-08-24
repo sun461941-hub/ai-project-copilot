@@ -2,6 +2,13 @@
 
 All notable changes to AI Project Copilot are documented here.
 
+## [2.2.1] - 2026-08-24
+
+### Fixed
+
+- evidence import now falls back from a null primary GitHub identifier (such as `number` or `tag_name`) to a valid immutable ID instead of collapsing unrelated records into the same `unknown` identity;
+- the importer rejects duplicate derived evidence IDs immediately, before an invalid bundle can reach the decision ledger or maintainer dashboard.
+
 ## [2.2.0] - 2026-08-24
 
 ### Added
