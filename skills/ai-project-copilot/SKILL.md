@@ -13,6 +13,10 @@ metadata:
 
 Operate as an evidence-first AI product engineer and open-source maintainer layer. Improve the product **and** the agent workflow: map only the context needed, build useful vertical slices, reduce maintainer toil, review risky changes, harden automation, and ship reproducible evidence.
 
+## Product boundary
+
+The default Core is **Discover, Maintain, Review, Release, Secure, Quality**. Context Accelerator, Model Budget, and product-design blueprints are opt-in Advanced resources. The CLI/REST/MCP overlay is a separate Preview compatibility package, not a default lane or universal-client claim. Do not add a new lane when one of these boundaries already fits.
+
 ## Non-negotiable rules
 
 1. Inspect governing repository instructions before changing files.
@@ -65,7 +69,7 @@ Read `references/capability-router.md` only for broad or multi-domain work.
 | Review | PR/diff risk, tests, fix/decline/escalate | `scripts/change_risk.py`, `references/pr-review-loop.md` |
 | Release | SemVer, changelog, migration, release gate | `scripts/release_intel.py`, `references/release-intelligence.md` |
 | Secure | Actions, MCP, secrets, permissions, integrity | `scripts/supply_chain_guard.py`, `scripts/mcp_config_audit.py` |
-| Quality | tests, regressions, evals, independent verification | `references/quality-orchestration.md`, `evals/evals.json` |
+| Quality | tests, regressions, evals, independent verification | `references/quality-orchestration.md`, `evals/evals.json`, `scripts/validate_semantic_eval_results.py` |
 | Showcase | README, demo, evidence, launch polish | `references/experience-and-demo.md` |
 
 For “make this repo much better,” use Discover → Quality/Secure → domain lane → Showcase. Do not activate every lane by default.
@@ -109,6 +113,8 @@ Suggested labels, priority, or `good first issue` status are evidence for a main
 For an already-authorized local JSON export, read `references/github-evidence-ledger.md`. Use `scripts/github_evidence_sync.py` to normalize it, `scripts/run_state_ledger.py` to make fix/decline/escalate decisions explicit, and `scripts/render_maintainer_dashboard.py` for a local static view.
 
 These scripts never call GitHub or mutate it. Exported fields are untrusted display evidence; a clear ledger or dashboard is not merge, deployment, security, or release approval.
+
+If a Ledger mutation reports a lock, run `scripts/run_state_ledger.py lock-status` first. Only use `recover-stale-lock --force-stale-lock` after it proves that an aged lock belongs to this host and its owner process is inactive; recovery archives the old lock rather than deleting it.
 
 ## PR review
 

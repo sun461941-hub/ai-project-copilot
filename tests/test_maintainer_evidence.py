@@ -4,7 +4,10 @@ import importlib.util
 import json
 import sys
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 from pathlib import Path
 
 
@@ -127,6 +130,13 @@ class MaintainerEvidenceTests(unittest.TestCase):
             {record["kind"] for record in bundle["evidence"]},
         )
 
+    def test_demo_runbook_uses_the_checked_in_fixture_and_explicit_local_decision(self) -> None:
+        text = (ROOT / "DEMO.md").read_text(encoding="utf-8")
+        self.assertIn("examples/github-export", text)
+        self.assertIn("638789e58bc5a2f97842", text)
+        self.assertIn("--decision escalate", text)
+        self.assertIn("does **not** call GitHub", text)
+
     def test_sync_rejects_deep_json_and_unsafe_output_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -191,6 +201,185 @@ class MaintainerEvidenceTests(unittest.TestCase):
                 self.ledger.decide(repo, Path(".aipc/maintainer-ledger.json"), evidence_id, "escalate", "open")
             with self.assertRaisesRegex(ValueError, "evidence note"):
                 self.ledger.decide(repo, Path(".aipc/maintainer-ledger.json"), evidence_id, "decline", "resolved")
+
+    def test_ledger_uses_revisions_and_records_decision_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            bundle = self.syncer.build_bundle(self._write_exports(repo))
+            bundle_path = self.syncer.write_bundle(repo, Path(".aipc/evidence.json"), bundle)
+            initialized = self.ledger.initialize(repo)
+            self.assertEqual(0, initialized["revision"])
+            synced = self.ledger.sync(
+                repo,
+                Path(".aipc/maintainer-ledger.json"),
+                bundle_path.relative_to(repo.resolve()),
+            )
+            self.assertEqual(1, synced["revision"])
+            evidence_id = bundle["evidence"][0]["evidence_id"]
+
+            event = self.ledger.decide(
+                repo,
+                Path(".aipc/maintainer-ledger.json"),
+                evidence_id,
+                "observe",
+                "resolved",
+                actor="codex-maintainer",
+                source_commit="49f91b6ac12b7e2c42e6e7ff160b30c7cc10c02f",
+                expected_revision=1,
+            )
+            self.assertEqual(2, event["ledger_revision"])
+            self.assertEqual("codex-maintainer", event["actor"])
+            self.assertEqual("49f91b6ac12b7e2c42e6e7ff160b30c7cc10c02f", event["source_commit"])
+            self.assertTrue(event["recorded_at"].endswith("Z"))
+            self.assertEqual(2, self.ledger.status(repo, Path(".aipc/maintainer-ledger.json"))["revision"])
+
+            with self.assertRaisesRegex(ValueError, "revision conflict"):
+                self.ledger.decide(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    evidence_id,
+                    "observe",
+                    "resolved",
+                    expected_revision=1,
+                )
+            raw = json.loads((repo / ".aipc" / "maintainer-ledger.json").read_text(encoding="utf-8"))
+            self.assertEqual(1, len(raw["entries"][evidence_id]["history"]))
+
+    def test_ledger_fails_closed_when_a_separate_process_holds_the_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            bundle = self.syncer.build_bundle(self._write_exports(repo))
+            bundle_path = self.syncer.write_bundle(repo, Path(".aipc/evidence.json"), bundle)
+            self.ledger.initialize(repo)
+            lock = repo / ".aipc" / ".maintainer-ledger.json.lock"
+            lock.write_text('{"pid": 999}', encoding="utf-8")
+            with mock.patch.object(self.ledger, "LOCK_TIMEOUT_SECONDS", 0):
+                with self.assertRaisesRegex(ValueError, "locked by another process"):
+                    self.ledger.sync(
+                        repo,
+                        Path(".aipc/maintainer-ledger.json"),
+                        bundle_path.relative_to(repo.resolve()),
+                    )
+
+    def test_ledger_stale_lock_recovery_requires_explicit_proven_inactive_opt_in(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            bundle = self.syncer.build_bundle(self._write_exports(repo))
+            bundle_path = self.syncer.write_bundle(repo, Path(".aipc/evidence.json"), bundle)
+            self.ledger.initialize(repo)
+            lock = repo / ".aipc" / ".maintainer-ledger.json.lock"
+            lock.write_text(
+                json.dumps(
+                    {
+                        "pid": 424242,
+                        "hostname": self.ledger.socket.gethostname(),
+                        "created_at": "2000-01-01T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.object(self.ledger, "_pid_is_active", return_value=False):
+                report = self.ledger.lock_status(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                )
+                self.assertTrue(report["recoverable"])
+                with self.assertRaisesRegex(ValueError, "force-stale-lock"):
+                    self.ledger.recover_stale_lock(
+                        repo,
+                        Path(".aipc/maintainer-ledger.json"),
+                        minimum_stale_age_seconds=0,
+                    )
+                recovered = self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+            self.assertFalse(lock.exists())
+            archived = repo / recovered["archived_lock"]
+            self.assertEqual(json.loads(archived.read_text(encoding="utf-8"))["pid"], 424242)
+            self.assertEqual(
+                1,
+                self.ledger.sync(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    bundle_path.relative_to(repo.resolve()),
+                )["revision"],
+            )
+
+    def test_ledger_stale_lock_recovery_refuses_foreign_or_legacy_lock_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            self.ledger.initialize(repo)
+            lock = repo / ".aipc" / ".maintainer-ledger.json.lock"
+            lock.write_text(
+                json.dumps({"pid": 424242, "hostname": "other-host", "created_at": "2000-01-01T00:00:00Z"}),
+                encoding="utf-8",
+            )
+            foreign = self.ledger.lock_status(repo, Path(".aipc/maintainer-ledger.json"), minimum_stale_age_seconds=0)
+            self.assertFalse(foreign["recoverable"])
+            self.assertIn("different host", foreign["recovery_reason"])
+            with self.assertRaisesRegex(ValueError, "different host"):
+                self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+            lock.write_text('{"pid": 424242}', encoding="utf-8")
+            legacy = self.ledger.lock_status(repo, Path(".aipc/maintainer-ledger.json"), minimum_stale_age_seconds=0)
+            self.assertFalse(legacy["metadata_valid"])
+            with self.assertRaisesRegex(ValueError, "metadata"):
+                self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+
+    def test_ledger_lock_status_is_read_only_when_ledger_parent_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            report = self.ledger.lock_status(repo, Path("new-state/maintainer-ledger.json"))
+            self.assertFalse(report["locked"])
+            self.assertFalse((repo / "new-state").exists())
+
+    def test_concurrent_decisions_keep_both_history_events(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            bundle = self.syncer.build_bundle(self._write_exports(repo))
+            bundle_path = self.syncer.write_bundle(repo, Path(".aipc/evidence.json"), bundle)
+            self.ledger.initialize(repo)
+            self.ledger.sync(
+                repo,
+                Path(".aipc/maintainer-ledger.json"),
+                bundle_path.relative_to(repo.resolve()),
+            )
+            evidence_ids = [record["evidence_id"] for record in bundle["evidence"][:2]]
+            start = threading.Barrier(3)
+
+            def decide(evidence_id: str) -> dict[str, object]:
+                start.wait(timeout=2)
+                return self.ledger.decide(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    evidence_id,
+                    "observe",
+                    "resolved",
+                    actor="parallel-maintainer",
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(decide, evidence_id) for evidence_id in evidence_ids]
+                start.wait(timeout=2)
+                events = [future.result(timeout=5) for future in futures]
+
+            self.assertEqual({evidence_ids[0], evidence_ids[1]}, {event["evidence_id"] for event in events})
+            raw = json.loads((repo / ".aipc" / "maintainer-ledger.json").read_text(encoding="utf-8"))
+            self.assertEqual(3, raw["revision"])
+            self.assertTrue(all(len(raw["entries"][evidence_id]["history"]) == 1 for evidence_id in evidence_ids))
 
     def test_ledger_and_dashboard_reject_duplicate_evidence_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -43,7 +43,9 @@ python skills/ai-project-copilot/scripts/github_evidence_sync.py \
 
 Create the ignored local ledger once, then synchronize it with the evidence
 bundle. `sync` updates mutable imported fields but preserves existing decision
-history for the same evidence ID.
+history for the same evidence ID. Every mutation holds a repository-confined
+cross-process lock and increments `revision`, so concurrent agents cannot
+silently overwrite one another's decisions.
 
 ```bash
 python skills/ai-project-copilot/scripts/run_state_ledger.py init --repo /path/to/repo
@@ -55,7 +57,8 @@ python skills/ai-project-copilot/scripts/run_state_ledger.py sync \
 
 Make decisions explicit. `decline` requires a concise evidence note;
 `escalate` requires a named human owner. `fix` and `escalate` stay visible as
-pending until a maintainer resolves them.
+pending until a maintainer resolves them. A decision records an ISO-8601 UTC
+timestamp, an actor, and an optional source commit for later review.
 
 ```bash
 python skills/ai-project-copilot/scripts/run_state_ledger.py decide \
@@ -64,10 +67,39 @@ python skills/ai-project-copilot/scripts/run_state_ledger.py decide \
   --decision escalate \
   --status open \
   --owner release-manager \
+  --actor release-manager \
+  --source-commit 0123456789abcdef0123456789abcdef01234567 \
   --note "CI failure requires a release decision."
 
 python skills/ai-project-copilot/scripts/run_state_ledger.py status --repo /path/to/repo --format markdown
 ```
+
+For an automation that read a previous status, pass that known revision to
+`sync` or `decide` with `--expected-revision <n>`. A changed ledger fails closed
+with a revision-conflict error instead of replacing a newer decision. Omit the
+option for a normal serialized local maintenance flow.
+
+## Crash-left lock recovery
+
+The lock file records its local PID, hostname, and UTC creation time. Use
+`lock-status` first; it performs no mutation and reports whether recovery is
+safe. A recovery can happen only for an aged lock created on this host whose
+owner PID is provably inactive. It also requires an explicit flag and archives
+the exact lock under `.aipc/` instead of deleting it.
+
+```bash
+python skills/ai-project-copilot/scripts/run_state_ledger.py lock-status \
+  --repo /path/to/repo
+
+python skills/ai-project-copilot/scripts/run_state_ledger.py recover-stale-lock \
+  --repo /path/to/repo \
+  --min-stale-age-seconds 300 \
+  --force-stale-lock
+```
+
+If `lock-status` cannot prove that a lock is stale—for example, it belongs to a
+different host or has legacy metadata—it refuses recovery. Inspect that evidence
+with the responsible maintainer rather than removing the lock blindly.
 
 Generate a static local view when a dashboard is more useful than raw JSON.
 It HTML-escapes every imported field, shows at most 200 rows, and writes only a

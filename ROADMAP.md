@@ -41,12 +41,14 @@ This roadmap describes intended directions, not promises or compatibility guaran
 - static local maintainer dashboard with escaped imported fields and no GitHub mutation capability;
 - offline fixtures, deterministic evals, and path/depth/HTML-escaping regression coverage.
 
-## v2.3 — Connected evidence adapters + trend intelligence
+## v2.3 — Product hardening and first success
 
-- graduate the reviewed CLI/REST/MCP preview into the installable Skill only after security and compatibility gates pass;
-- optionally compare local deterministic reports with user-authorized GitHub-native status evidence;
-- contributor and maintenance trend snapshots from user-authorized data;
-- no automatic mutation by default.
+- **Completed in v2.3 P0:** protect `main` with a PR-only Ruleset, a stable `CI / gate`, code-owner review, resolved conversations, and no force-push, branch deletion, or configured bypass;
+- **Completed in v2.3 P0:** require release-environment approval and disallow administrator bypass; the manual release workflow continues to validate the selected tag before release work;
+- keep the Core/Advanced/Preview boundary explicit; pause new lanes while the primary maintenance journey is tightened;
+- publish a three-minute end-to-end demo with a fixed offline fixture, expected output, failure path, and a final dashboard view;
+- add a small, versioned real-model semantic-eval baseline with repeated runs and an independent rubric—without presenting structural evals as semantic proof;
+- make preview-payload and patch synchronization reproducible before widening preview support.
 
 ## v2.4 — Ecosystem interoperability
 
@@ -54,6 +56,13 @@ This roadmap describes intended directions, not promises or compatibility guaran
 - optional public registry discovery/update handoff when explicitly requested;
 - version/provenance comparison for third-party Skill updates;
 - MCP/tool capability mapping and permission preview across connected clients.
+
+## Later hardening
+
+- split the budget control plane behind its existing stable CLI entry points;
+- version and migrate ledger/evidence schemas deliberately;
+- add signed tags, artifact attestations, SBOM/provenance, CodeQL, secret scanning, and a documented support/deprecation policy;
+- publish real provider telemetry only from comparable, consented paired runs.
 
 ## v3.0 — Maintainer Control Plane
 

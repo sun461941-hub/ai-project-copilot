@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "discover-auth", "task": "map an unfamiliar auth change"},
+    {"id": "review-contract", "task": "review a public API diff"},
+    {"id": "release-migration", "task": "plan a breaking release"},
+    {"id": "actions-permission", "task": "inspect a workflow permission change"},
+    {"id": "exported-evidence", "task": "process authorized GitHub JSON"},
+    {"id": "ledger-convergence", "task": "record and close a local decision"},
+    {"id": "context-fast", "task": "repair a documentation typo"},
+    {"id": "budget-boundary", "task": "explain a cost-routing policy"},
+    {"id": "preview-scope", "task": "use the MCP preview adapter"},
+    {"id": "negative-near-miss", "task": "answer an isolated explanation"}
+  ]
+}

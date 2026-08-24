@@ -47,13 +47,13 @@
     },
     {
       "path": "payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py",
-      "sha256": "bf4f89c28135f831abc687928aa5ee5a9a0b8aed53729fda09774ba1acad5696",
-      "bytes": 12630
+      "sha256": "6b1672e01144580e969033351c5141a2c1069dededb8ca2c7b543f467800f61b",
+      "bytes": 13453
     },
     {
       "path": "payload/tests/test_multi_interface_gateway.py",
-      "sha256": "260797f07bf92176085ea7e9965396f7de7defcfaa69f4138b0c6efd2abe794f",
-      "bytes": 12485
+      "sha256": "9a3ba88fc65edce35b88bd5d13b668621a53aa3f0a43713a2fd598aa91d9d2b5",
+      "bytes": 13341
     },
     {
       "path": "apply_multi_interface_patch.py",
@@ -62,8 +62,8 @@
     },
     {
       "path": "ai-project-copilot-multi-interface.patch",
-      "sha256": "1d044ec2013b0c10306fb092fee77286cab494c346995b56b02f21367a28d4dd",
-      "bytes": 85750
+      "sha256": "45385d6d5c98d79856ce489f1824c200be9126e3c60fe87d3cff3cf5b1907bac",
+      "bytes": 87473
     },
     {
       "path": "PATCH_NOTES.zh-CN.md",

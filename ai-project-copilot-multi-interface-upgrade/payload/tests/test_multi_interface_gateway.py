@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import re
 import sys
@@ -23,7 +24,9 @@ from project_copilot_mcp import (
     MODERN_PROTOCOL,
     PROTOCOL_META_KEY,
     SERVER_INFO_META_KEY,
+    MAX_MESSAGE_BYTES,
     MCPAdapter,
+    serve_stdio,
 )
 
 
@@ -236,6 +239,22 @@ class MultiInterfaceGatewayTests(unittest.TestCase):
             listed = adapter.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
             assert listed is not None
             self.assertIn("tools", listed["result"])
+
+    def test_mcp_oversized_line_is_drained_before_next_valid_request(self) -> None:
+        valid = json.dumps(
+            {"jsonrpc": "2.0", "id": 77, "method": "ping", "params": modern_meta()}
+        ).encode("utf-8")
+        source = io.BytesIO((b"x" * (MAX_MESSAGE_BYTES + 32)) + b"\n" + valid + b"\n")
+        output = io.StringIO()
+
+        self.assertEqual(0, serve_stdio(MCPAdapter(self.engine), source, output))
+
+        responses = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(2, len(responses))
+        self.assertEqual(-32600, responses[0]["error"]["code"])
+        self.assertIn("size limit", responses[0]["error"]["data"])
+        self.assertEqual(77, responses[1]["id"])
+        self.assertEqual("complete", responses[1]["result"]["resultType"])
 
     def test_rest_requires_bearer_when_configured_and_runs_capability(self) -> None:
         server = CopilotHTTPServer(("127.0.0.1", 0), self.engine, "test-secret", request_timeout=2, max_concurrent_requests=4)

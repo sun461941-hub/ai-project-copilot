@@ -121,6 +121,18 @@ class GatewayJSONHardeningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "canonical JSON"):
             self.mod._canonical_json_bytes(value)
 
+    def test_canonical_json_rejects_self_referential_list_before_serialization(self):
+        value: list[object] = []
+        value.append(value)
+        with self.assertRaisesRegex(ValueError, "cyclic container"):
+            self.mod._canonical_json_bytes(value)
+
+    def test_canonical_json_rejects_self_referential_mapping_before_serialization(self):
+        value: dict[str, object] = {}
+        value["self"] = value
+        with self.assertRaisesRegex(ValueError, "cyclic container"):
+            self.mod._canonical_json_bytes(value)
+
 
 if __name__ == "__main__":
     unittest.main()

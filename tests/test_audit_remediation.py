@@ -37,6 +37,21 @@ class AuditRemediationTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertIn("--output dist/second.skill.zip", workflow)
         self.assertIn("cmp dist/first.skill.zip dist/second.skill.zip", workflow)
+        self.assertIn("git merge-base --is-ancestor HEAD", workflow)
+        self.assertIn(".verification.verified", workflow)
+        self.assertIn("actions/attest-build-provenance@", workflow)
+        self.assertIn("generate_release_sbom.py", workflow)
+        self.assertIn("Smoke-test release archive", workflow)
+        self.assertIn("python -m unittest discover -s package_tests -v", workflow)
+        self.assertIn("python -m unittest discover -s tests -v", workflow)
+
+    def test_ledger_exposes_safe_stale_lock_recovery_controls(self) -> None:
+        ledger = (SCRIPTS / "run_state_ledger.py").read_text(encoding="utf-8")
+        self.assertIn("lock-status", ledger)
+        self.assertIn("recover-stale-lock", ledger)
+        self.assertIn("--force-stale-lock", ledger)
+        self.assertIn("lock changed during recovery", ledger)
+        self.assertIn("hostname", ledger)
 
     def test_gateway_rejects_deep_provider_json_without_recursion_error(self) -> None:
         raw = b"[" * 10_000 + b"0" + b"]" * 10_000

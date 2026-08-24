@@ -1,0 +1,15 @@
+# Security-, release-, and interface-critical paths require maintainer review.
+# The repository ruleset should enable "Require review from Code Owners" on main.
+
+/.github/CODEOWNERS @sun461941-hub
+/.github/workflows/ @sun461941-hub
+/.github/dependabot.yml @sun461941-hub
+/tools/package_skill.py @sun461941-hub
+/tools/generate_release_sbom.py @sun461941-hub
+/skills/ai-project-copilot/scripts/ @sun461941-hub
+/skills/ai-project-copilot/scripts/model_budget_autopilot.py @sun461941-hub
+/skills/ai-project-copilot/scripts/model_budget_gateway.py @sun461941-hub
+/ai-project-copilot-multi-interface-upgrade/apply_multi_interface_patch.py @sun461941-hub
+/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/ @sun461941-hub
+/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_api.py @sun461941-hub
+/ai-project-copilot-multi-interface-upgrade/payload/skills/ai-project-copilot/scripts/project_copilot_mcp.py @sun461941-hub

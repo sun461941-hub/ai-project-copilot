@@ -73,22 +73,40 @@ def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
     return False
 
 
-def _json_value_nesting_exceeds(value: object, maximum: int = MAX_JSON_NESTING) -> bool:
-    """Check already-decoded JSON-like values without recursive Python calls."""
-    stack: list[tuple[object, int]] = [(value, 0)]
+def _json_value_safety_violation(value: object, maximum: int = MAX_JSON_NESTING) -> str | None:
+    """Return the first unsafe recursive-container condition, if one exists.
+
+    Decoded JSON cannot contain aliases or cycles, but this module also accepts
+    Python values from programmatic callers before canonical serialization.  An
+    explicit enter/leave stack prevents a self-referential list or mapping from
+    looping forever while still allowing a benign shared object in two sibling
+    branches.
+    """
+    stack: list[tuple[object, int, bool]] = [(value, 0, False)]
+    active_container_ids: set[int] = set()
     while stack:
-        current, depth = stack.pop()
-        if isinstance(current, Mapping):
-            next_depth = depth + 1
-            if next_depth > maximum:
-                return True
-            stack.extend((item, next_depth) for item in current.values())
-        elif isinstance(current, (list, tuple)):
-            next_depth = depth + 1
-            if next_depth > maximum:
-                return True
-            stack.extend((item, next_depth) for item in current)
-    return False
+        current, depth, leaving = stack.pop()
+        if not isinstance(current, (Mapping, list, tuple)):
+            continue
+        identity = id(current)
+        if leaving:
+            active_container_ids.discard(identity)
+            continue
+        if identity in active_container_ids:
+            return "cyclic container"
+        next_depth = depth + 1
+        if next_depth > maximum:
+            return "nesting exceeds safe limit"
+        active_container_ids.add(identity)
+        stack.append((current, depth, True))
+        values = current.values() if isinstance(current, Mapping) else current
+        stack.extend((item, next_depth, False) for item in values)
+    return None
+
+
+def _json_value_nesting_exceeds(value: object, maximum: int = MAX_JSON_NESTING) -> bool:
+    """Check decoded JSON-like values safely without recursive Python calls."""
+    return _json_value_safety_violation(value, maximum) is not None
 COUNT_PAYLOAD_FIELDS = frozenset(
     {
         "input",
@@ -284,7 +302,10 @@ class _LeaseRenewer:
 
 
 def _canonical_json_bytes(value: object) -> bytes:
-    if _json_value_nesting_exceeds(value):
+    violation = _json_value_safety_violation(value)
+    if violation == "cyclic container":
+        raise ValueError("request must be canonical JSON: cyclic container")
+    if violation is not None:
         raise ValueError(
             f"request must be canonical JSON: nesting exceeds the safe limit of {MAX_JSON_NESTING}"
         )

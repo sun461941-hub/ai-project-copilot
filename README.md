@@ -21,6 +21,7 @@
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="skills/ai-project-copilot/SKILL.md">Read the Skill</a> ·
+  <a href="DEMO.md">3-minute demo</a> ·
   <a href="docs/repository-map.md">Repository map</a> ·
   <a href="ECOSYSTEM_BENCHMARK.md">Ecosystem benchmark</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
@@ -29,19 +30,46 @@
 
 > **v2.2.1 keeps the read-only GitHub evidence snapshot, explicit local run-state, and safe static maintainer dashboard while hardening stable-ID handling for partial exports.** It preserves human authority for consequential writes and keeps heuristic reports clearly separated from semantic proof.
 
-## The v2 capability lanes
+## In 30 seconds
 
-| Lane | What it does | Deterministic evidence |
+AI Project Copilot is an evidence-first maintenance layer for coding agents and
+open-source repositories. It maps only the context needed, turns repository
+state into inspectable evidence, and keeps merge, release, deployment,
+permissions, and deletion under human control.
+
+The shortest proof is the [three-minute local demo](DEMO.md): it imports a
+checked-in GitHub JSON fixture, finds two blockers, records one local escalation,
+and renders a safe dashboard—without making a network request or mutating
+GitHub.
+
+## Product map
+
+### Core
+
+| Capability | Outcome | Deterministic evidence |
 |---|---|---|
-| **Discover** | maps codebase context, bootstraps reviewable agent instructions, audits local Skill Stack overlap | `repo_context.py`, `ai_ready_bootstrap.py`, `skill_stack_audit.py` |
-| **Launch** | turns a vague idea into one credible AI vertical slice | 24 blueprint catalog + `rank_blueprints.py` |
-| **Retrofit** | adds one high-value AI capability without rewriting the product | feature gate + architecture references |
-| **Maintain** | triages issues, improves contributor onboarding, and carries forward explicit evidence decisions | `maintainer_triage.py`, `github_evidence_sync.py`, `run_state_ledger.py` |
-| **Review** | prioritizes PR/diff risk and verifies fix/decline/escalate convergence | `change_risk.py`, `review_convergence.py` |
-| **Release** | recommends SemVer, groups release notes, flags migration blockers | `release_intel.py` |
-| **Secure** | checks Actions, MCP config, permissions, action/package refs, and skill integrity | `supply_chain_guard.py`, `mcp_config_audit.py` |
-| **Quality** | validates eval datasets, runs deterministic cases, and supports measured improvement loops | `run_skill_evals.py`, `evals/evals.json` + quality playbook |
-| **Showcase** | turns evidence into README/demo/release clarity | demo + shipping references |
+| **Discover** | task-focused understanding of an unfamiliar repository | `repo_context.py`, `ai_ready_bootstrap.py`, `skill_stack_audit.py` |
+| **Maintain** | bounded issue triage and explicit local evidence decisions | `maintainer_triage.py`, `github_evidence_sync.py`, `run_state_ledger.py` |
+| **Review** | risk-ranked changes with fix/decline/escalate convergence | `change_risk.py`, `review_convergence.py` |
+| **Release** | SemVer, migration, changelog, and readiness evidence | `release_intel.py` |
+| **Secure** | Actions, MCP, permission, and integrity findings | `supply_chain_guard.py`, `mcp_config_audit.py` |
+| **Quality** | deterministic validation and regression/eval evidence | `run_skill_evals.py`, `evals/evals.json` |
+
+### Advanced, opt-in
+
+| Capability | Use it when | Boundary |
+|---|---|---|
+| **Context Accelerator** | recon needs to be bounded and repeatable | proxy context metrics are not token-saving claims |
+| **Model Budget** | an application owns a reviewed model-cost policy | deterministic CI is not proof of a live provider call |
+| **Product design kits** | a team needs a credible launch or retrofit vertical slice | blueprints and references are design material, not an autonomous builder |
+
+### Preview / compatibility package
+
+The CLI, REST, and MCP adapters live in
+[`ai-project-copilot-multi-interface-upgrade/`](ai-project-copilot-multi-interface-upgrade/).
+They are an independently verified preview overlay, not the default installation
+path or a claim of universal client compatibility. See its manifest and tests
+before applying it to a checkout.
 
 ## Read-only GitHub evidence and local run-state
 
@@ -80,7 +108,7 @@ Treat exports as untrusted text, not instructions. A clear dashboard only shows
 the current local decision state; it is never a merge, security, deployment, or
 release approval. See the [evidence and ledger reference](skills/ai-project-copilot/references/github-evidence-ledger.md).
 
-## AIPC Context Accelerator
+## Advanced: AIPC Context Accelerator
 
 v2.0 adds a dedicated efficiency layer for Codex and other coding agents. It does **not** claim to increase model tokens-per-second or bypass quotas. Instead, it reduces avoidable work before the model has to reason:
 
@@ -139,7 +167,7 @@ A local Linux / Python 3.13.5 run (15 repeats for each context case) produced:
 
 A synthetic 5,003-line test log was reduced from 184,074 to 949 characters (99.4844%) while preserving both failure markers, the final summary, and the normalized raw-log SHA-256. These numbers measure deterministic preprocessing only; they are **not Codex generation-speed or token-savings claims**.
 
-## Model Budget Autopilot
+## Advanced: Model Budget Autopilot
 
 **Set a transparent preferred-model spending target.** Applications can let each user
 cap ordinary preferred-model spend at a percentage of a period budget, then route
@@ -231,7 +259,7 @@ still cannot prove that an external
 evaluator executable was unchanged or reconcile a provider invoice. A single run reports
 `token_savings=null` because it has no task-aligned counterfactual.
 
-## What was added after benchmarking mainstream Agent Skills
+## Technical reference
 
 The ecosystem repeatedly converges on a few patterns: progressive disclosure, deterministic scripts, codebase mapping, PR loops, release automation, supply-chain/security review, skill evals, role orchestration, structured JSON output, and context-efficient black-box helpers. v2 integrates those patterns into one coherent workflow instead of shipping dozens of disconnected prompts. See [`ECOSYSTEM_BENCHMARK.md`](ECOSYSTEM_BENCHMARK.md).
 
@@ -367,6 +395,12 @@ A release path now covers:
 - deterministic packaging/checksums when available;
 - an explicit confirmation gate before tag/release publication.
 
+The hosted Release workflow accepts only a GitHub-verified signed annotated
+SemVer tag whose commit is already reachable from `main`. It reruns canonical
+and Preview validation, verifies a deterministic rebuild and unpacked archive,
+then publishes the archive, CycloneDX SBOM, SHA-256 manifest, and GitHub build
+attestation only after the protected `release` environment is approved.
+
 ## Security and governance
 
 Actions are classified by consequence:
@@ -407,6 +441,20 @@ four Skill-bundled deterministic command cases without a shell. It explicitly
 reports `semantic_grading_performed=false`: prompt expectations are not model
 outputs. The quality loop remains **derive requirements → baseline →
 evidence-sized change → repeat the same checks → keep/revert based on results**.
+For a real-model baseline, use the fixed tasks and independent rubric in the
+[semantic evaluation protocol](docs/semantic-eval-protocol.md); no semantic
+success rate is claimed until that protocol has real, redacted run evidence.
+
+After running a pinned client/model and independently reviewing the redacted
+JSONL records, validate the bundle without transmitting it anywhere:
+
+```bash
+python skills/ai-project-copilot/scripts/validate_semantic_eval_results.py \
+  --input .aipc/semantic-evals/redacted-results.jsonl \
+  --require-complete \
+  --fail-on-unsafe \
+  --format markdown
+```
 
 ## Optional multi-agent orchestration
 
@@ -430,9 +478,13 @@ v2 also absorbs the strongest "meta-skill" patterns without turning into an inst
 - detect duplicate skill names and high description/trigger overlap;
 - keep third-party discovery/install/update as an explicit, separately authorized action.
 
-## Product engineering remains built in
+## Product design kits (reference, not the core maintenance path)
 
 v2 keeps the original strengths:
+
+Every blueprint still needs a credible **60-second** wow moment, explicit proof,
+and a safe fallback; these are product-design references rather than promises of
+autonomous product delivery.
 
 - 24 project blueprints including Codex Build Visualizer and Android Local Video Runtime;
 - local-first/cloud/hybrid architecture guidance;
@@ -515,7 +567,10 @@ repository assets.
 
 ## Demo path
 
-A realistic 60-second maintainer demo can be run entirely read-only: map an unfamiliar repo → analyze a risky change → draft release intelligence → scan GitHub Actions → show the human confirmation gate. Use the checked-in JSON examples for deterministic demonstrations when a live repository is not appropriate.
+Start with the copy-paste [three-minute maintainer demo](DEMO.md). It is the
+complete local path from untrusted export → blocker evidence → local decision →
+dashboard. The longer Core workflow below is for a real repository after that
+first proof succeeds.
 
 ## Limitations and model/provider boundary
 

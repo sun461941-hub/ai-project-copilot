@@ -18,9 +18,11 @@ files.
 
 | Location | Purpose |
 | --- | --- |
-| [`.github/workflows/`](../.github/workflows/) | Read-only CI and the manually dispatched release workflow. |
+| [`.github/workflows/`](../.github/workflows/) | Read-only CI (including the stable `CI / gate`) and the manually dispatched release workflow, which verifies signed main-ancestor Tags and produces an attested archive/SBOM. |
+| [`.github/CODEOWNERS`](../.github/CODEOWNERS) | Enforced reviewer boundary for repository governance, packaging, all canonical Skill scripts, and preview gateway adapters through the active GitHub Ruleset. |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Public release history. Update it before creating a release tag. |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`SECURITY.md`](../SECURITY.md), [`ROADMAP.md`](../ROADMAP.md) | Contribution, security, and project-governance contracts. |
+| [`DEMO.md`](../DEMO.md), [`docs/assets/demo-dashboard-preview.svg`](assets/demo-dashboard-preview.svg), [`semantic-eval-protocol.md`](semantic-eval-protocol.md) | The fixed first-success journey, its clearly labeled deterministic visual preview, and the separate real-model evaluation contract. |
 | [`README.md`](../README.md) and [`README.zh-CN.md`](../README.zh-CN.md) | Public entry points. Keep version and release guidance aligned with the changelog and published tag. |
 
 ## Active compatibility package
@@ -56,8 +58,9 @@ in any of these paths.
    points consistent where they state versions, installation, or release
    governance. Run at least the structural validation and diff check.
 4. **Workflow or release change:** review permissions, pinned action refs, and
-   provenance before merging. A passing CI run does not replace the required
-   human confirmation for publication.
+   provenance before merging. The release route requires a GitHub-verified
+   signed annotated Tag whose commit is already reachable from `main`; a
+   passing CI run does not replace the required human confirmation for publication.
 
 ## Maintainer verification
 
@@ -82,12 +85,13 @@ runs the same release-critical validation on supported platforms.
 1. Finish the change, changelog, version metadata, and public README updates.
 2. Pass the verification suite and the required CI checks on the reviewed main
    commit.
-3. Create an annotated SemVer tag on that exact commit.
+3. Create a GitHub-verified signed annotated SemVer tag on that exact commit.
 4. Manually dispatch the **Release** workflow with the existing tag. Its
-   validation job rebuilds the archive; the `release` environment remains the
-   publication gate.
-5. Confirm the GitHub Release contains the generated skill archive and its
-   checksum before announcing it.
+   validation job reruns canonical and Preview checks, verifies a deterministic
+   rebuild and unpacked archive, and confirms the Tag is already in `main`.
+   The `release` environment remains the publication gate.
+5. Confirm the GitHub Release contains the generated skill archive, CycloneDX
+   SBOM, SHA-256 manifest, and GitHub build attestation before announcing it.
 
 Publication, tag creation, permissions, merges, and deletion remain
 consequential actions; this map documents the route but never removes the need
