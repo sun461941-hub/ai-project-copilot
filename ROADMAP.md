@@ -43,8 +43,8 @@ This roadmap describes intended directions, not promises or compatibility guaran
 
 ## v2.3 — Product hardening and first success
 
-- protect `main` with a PR-only Ruleset, a stable `CI / gate`, code-owner review, resolved conversations, and no force-push or branch deletion;
-- require release-environment approval and restrict release deployments to reviewed tags;
+- **Completed in v2.3 P0:** protect `main` with a PR-only Ruleset, a stable `CI / gate`, code-owner review, resolved conversations, and no force-push, branch deletion, or configured bypass;
+- **Completed in v2.3 P0:** require release-environment approval and disallow administrator bypass; the manual release workflow continues to validate the selected tag before release work;
 - keep the Core/Advanced/Preview boundary explicit; pause new lanes while the primary maintenance journey is tightened;
 - publish a three-minute end-to-end demo with a fixed offline fixture, expected output, failure path, and a final dashboard view;
 - add a small, versioned real-model semantic-eval baseline with repeated runs and an independent rubric—without presenting structural evals as semantic proof;

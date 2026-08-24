@@ -107,4 +107,4 @@ python tools/package_skill.py skills/ai-project-copilot \
 
 GitHub Actions 中引用 `release` environment 并不自动产生审批；还需要在仓库 Settings → Environments → release 中配置 Required reviewers。
 
-`main` 应通过 Ruleset 强制走 PR、`CI / gate`、代码所有者审查、会话解决、禁止 force-push 和删除分支；文档中的规则只有在 GitHub 设置中开启后才真正生效。
+`main` 已通过 active Ruleset 强制走 PR、`CI / gate`、代码所有者审查、会话解决，并禁止 force-push、删除分支和配置的绕过；`release` Environment 已要求人工审批且管理员不能绕过。文档与 GitHub 设置会一起维护。

@@ -68,15 +68,16 @@ A blueprint should not claim support, performance, privacy, or licensing that it
 ## Maintainer governance
 
 `main` is a review-only integration branch: create a focused branch and Pull
-Request rather than pushing a change directly to it. The repository Ruleset is
-expected to require the stable **CI / gate** check, a current approval, resolved
-review conversations, and code-owner review for critical paths.
+Request rather than pushing a change directly to it. The active repository
+Ruleset requires the stable **CI / gate** check, a current approval, resolved
+review conversations, and code-owner review for critical paths; it also blocks
+force-pushes, branch deletion, and configured bypasses.
 
 `.github/CODEOWNERS` assigns the maintainer to workflow, packager, budget, and
-preview gateway paths. A code-owner entry documents the intended review boundary;
-it becomes enforceable only when the GitHub Ruleset enables **Require review from
-Code Owners**. Do not merge, publish, delete, or change repository permissions
-from an agent workflow: leave those actions to an explicitly authorized human.
+preview gateway paths. The active Ruleset enforces **Require review from Code
+Owners** for the matching changes. Do not merge, publish, delete, or change
+repository permissions from an agent workflow: leave those actions to an
+explicitly authorized human.
 
 ## Commit style
 
