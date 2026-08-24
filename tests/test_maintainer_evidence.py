@@ -261,6 +261,91 @@ class MaintainerEvidenceTests(unittest.TestCase):
                         bundle_path.relative_to(repo.resolve()),
                     )
 
+    def test_ledger_stale_lock_recovery_requires_explicit_proven_inactive_opt_in(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            bundle = self.syncer.build_bundle(self._write_exports(repo))
+            bundle_path = self.syncer.write_bundle(repo, Path(".aipc/evidence.json"), bundle)
+            self.ledger.initialize(repo)
+            lock = repo / ".aipc" / ".maintainer-ledger.json.lock"
+            lock.write_text(
+                json.dumps(
+                    {
+                        "pid": 424242,
+                        "hostname": self.ledger.socket.gethostname(),
+                        "created_at": "2000-01-01T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.object(self.ledger, "_pid_is_active", return_value=False):
+                report = self.ledger.lock_status(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                )
+                self.assertTrue(report["recoverable"])
+                with self.assertRaisesRegex(ValueError, "force-stale-lock"):
+                    self.ledger.recover_stale_lock(
+                        repo,
+                        Path(".aipc/maintainer-ledger.json"),
+                        minimum_stale_age_seconds=0,
+                    )
+                recovered = self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+            self.assertFalse(lock.exists())
+            archived = repo / recovered["archived_lock"]
+            self.assertEqual(json.loads(archived.read_text(encoding="utf-8"))["pid"], 424242)
+            self.assertEqual(
+                1,
+                self.ledger.sync(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    bundle_path.relative_to(repo.resolve()),
+                )["revision"],
+            )
+
+    def test_ledger_stale_lock_recovery_refuses_foreign_or_legacy_lock_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            self.ledger.initialize(repo)
+            lock = repo / ".aipc" / ".maintainer-ledger.json.lock"
+            lock.write_text(
+                json.dumps({"pid": 424242, "hostname": "other-host", "created_at": "2000-01-01T00:00:00Z"}),
+                encoding="utf-8",
+            )
+            foreign = self.ledger.lock_status(repo, Path(".aipc/maintainer-ledger.json"), minimum_stale_age_seconds=0)
+            self.assertFalse(foreign["recoverable"])
+            self.assertIn("different host", foreign["recovery_reason"])
+            with self.assertRaisesRegex(ValueError, "different host"):
+                self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+            lock.write_text('{"pid": 424242}', encoding="utf-8")
+            legacy = self.ledger.lock_status(repo, Path(".aipc/maintainer-ledger.json"), minimum_stale_age_seconds=0)
+            self.assertFalse(legacy["metadata_valid"])
+            with self.assertRaisesRegex(ValueError, "metadata"):
+                self.ledger.recover_stale_lock(
+                    repo,
+                    Path(".aipc/maintainer-ledger.json"),
+                    minimum_stale_age_seconds=0,
+                    force_stale_lock=True,
+                )
+
+    def test_ledger_lock_status_is_read_only_when_ledger_parent_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            report = self.ledger.lock_status(repo, Path("new-state/maintainer-ledger.json"))
+            self.assertFalse(report["locked"])
+            self.assertFalse((repo / "new-state").exists())
+
     def test_concurrent_decisions_keep_both_history_events(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)

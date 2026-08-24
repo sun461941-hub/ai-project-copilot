@@ -58,6 +58,36 @@ Expected result: `revision: 2`, four ledger entries, and one visible pending
 escalation. Open `.aipc/demo/maintainer-dashboard.html` locally to inspect the
 same escaped evidence and decision trail.
 
+![Vector preview of the checked-in fixture dashboard](docs/assets/demo-dashboard-preview.svg)
+
+The preview is a deterministic vector rendering of this fixture's expected
+result. It is not a live GitHub view or a browser screenshot; the commands
+above remain the source of truth for a fresh local run.
+
+## Safe recovery of a crash-left local lock
+
+Normal ledger writes release their lock automatically. If a process crashed,
+first inspect the local lock without changing it:
+
+```bash
+python skills/ai-project-copilot/scripts/run_state_ledger.py lock-status \
+  --repo . \
+  --ledger .aipc/demo/maintainer-ledger.json
+```
+
+Recovery is available only when the lock is on this host, its recorded process
+is provably inactive, and it is older than the configured age. It requires an
+explicit decision and moves the old lock into an ignored recovery directory
+rather than deleting it:
+
+```bash
+python skills/ai-project-copilot/scripts/run_state_ledger.py recover-stale-lock \
+  --repo . \
+  --ledger .aipc/demo/maintainer-ledger.json \
+  --min-stale-age-seconds 300 \
+  --force-stale-lock
+```
+
 ## Intentional failure path
 
 Run the import command a second time with the same `--output`. It fails with an

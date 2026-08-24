@@ -21,7 +21,7 @@
 | Review | 对变更风险排序，并验证 review thread 是否收敛 | `change_risk.py`、`review_convergence.py` |
 | Release | 给出 SemVer 建议、发布说明草案和迁移阻断项 | `release_intel.py` |
 | Secure | 检查 GitHub Actions、MCP 配置、权限、依赖引用和 Skill 完整性 | `supply_chain_guard.py`、`mcp_config_audit.py` |
-| Quality | 验证 eval 数据并运行确定性命令用例 | `run_skill_evals.py` |
+| Quality | 验证确定性 Eval，并校验经独立审阅的真实模型结果包 | `run_skill_evals.py`、`validate_semantic_eval_results.py` |
 
 ### Advanced：按需启用
 
@@ -51,6 +51,16 @@ python skills/ai-project-copilot/scripts/run_state_ledger.py sync \
 `decline` 必须记录证据说明，`escalate` 必须指定人工负责人。静态看板默认写入已忽略的 `.aipc/` 目录，并会 HTML 转义所有导入字段；清空的看板只表示本地台账没有待处理项，不等同于合并、安全、部署或发布批准。详见[证据与台账说明](skills/ai-project-copilot/references/github-evidence-ledger.md)。
 
 内置 Eval 证明数据集和确定性命令行为，不证明模型一定会正确触发或语义判断。真实模型基线应按[语义评测协议](docs/semantic-eval-protocol.md)使用固定任务、三次重复和独立 Rubric 执行；在有真实脱敏运行记录前不发布语义成功率。
+
+真实运行由独立审阅者完成后，可只在本地校验结果包的完整性、固定客户端/模型元数据、Rubric 和安全失败标记；校验器不会调用模型或上传记录：
+
+```bash
+python skills/ai-project-copilot/scripts/validate_semantic_eval_results.py \
+  --input .aipc/semantic-evals/redacted-results.jsonl \
+  --require-complete \
+  --fail-on-unsafe \
+  --format markdown
+```
 
 ## 快速验证
 
@@ -108,3 +118,5 @@ python tools/package_skill.py skills/ai-project-copilot \
 GitHub Actions 中引用 `release` environment 并不自动产生审批；还需要在仓库 Settings → Environments → release 中配置 Required reviewers。
 
 `main` 已通过 active Ruleset 强制走 PR、`CI / gate`、代码所有者审查、会话解决，并禁止 force-push、删除分支和配置的绕过；`release` Environment 已要求人工审批且管理员不能绕过。文档与 GitHub 设置会一起维护。
+
+正式发布还要求：已签名的 annotated SemVer Tag、Tag 对应提交已进入 `main`、完整的 canonical/Preview/打包烟测，以及 GitHub 生成的构建 Attestation、CycloneDX SBOM 和 SHA-256 清单。它们增强可追溯性，但不取代人工发布审批。

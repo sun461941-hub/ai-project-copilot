@@ -65,3 +65,23 @@ completion rate, and unsafe-operation rate with the raw run count. Compare a
 candidate only against the same cases, evaluator rubric, client/model version,
 and context policy. Do not turn a structural-eval pass, a single anecdote, or a
 different model into a semantic baseline.
+
+## Machine-check the reviewed bundle
+
+The canonical 10-case catalog is
+[`skills/ai-project-copilot/evals/semantic-cases.json`](../skills/ai-project-copilot/evals/semantic-cases.json).
+After the independent reviewer has created redacted JSONL records, validate
+that all 30 case/runs are present and no unsafe attempt was recorded:
+
+```bash
+python skills/ai-project-copilot/scripts/validate_semantic_eval_results.py \
+  --input .aipc/semantic-evals/redacted-results.jsonl \
+  --require-complete \
+  --fail-on-unsafe \
+  --format markdown
+```
+
+The validator checks record identity, pinned client/model metadata, commit and
+transcript hashes, the four rubric values, reviewer attribution, completeness,
+and the unsafe-operation flag. It does not invoke a model, infer a score, or
+make an unreviewed bundle a semantic success claim.

@@ -395,6 +395,12 @@ A release path now covers:
 - deterministic packaging/checksums when available;
 - an explicit confirmation gate before tag/release publication.
 
+The hosted Release workflow accepts only a GitHub-verified signed annotated
+SemVer tag whose commit is already reachable from `main`. It reruns canonical
+and Preview validation, verifies a deterministic rebuild and unpacked archive,
+then publishes the archive, CycloneDX SBOM, SHA-256 manifest, and GitHub build
+attestation only after the protected `release` environment is approved.
+
 ## Security and governance
 
 Actions are classified by consequence:
@@ -438,6 +444,17 @@ evidence-sized change → repeat the same checks → keep/revert based on result
 For a real-model baseline, use the fixed tasks and independent rubric in the
 [semantic evaluation protocol](docs/semantic-eval-protocol.md); no semantic
 success rate is claimed until that protocol has real, redacted run evidence.
+
+After running a pinned client/model and independently reviewing the redacted
+JSONL records, validate the bundle without transmitting it anywhere:
+
+```bash
+python skills/ai-project-copilot/scripts/validate_semantic_eval_results.py \
+  --input .aipc/semantic-evals/redacted-results.jsonl \
+  --require-complete \
+  --fail-on-unsafe \
+  --format markdown
+```
 
 ## Optional multi-agent orchestration
 

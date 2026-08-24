@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">AI Project Copilot maintainer evidence dashboard preview</title>
+  <desc id="desc">A deterministic vector preview of the Dashboard produced by the three-minute offline demo fixture: four evidence records, two blockers, one open escalation, and two unreviewed records.</desc>
+  <style>
+    .bg { fill: #f6f8fb; } .panel { fill: #fff; stroke: #dde3ed; stroke-width: 1; }
+    .h1 { fill: #172033; font: 700 30px Inter,Arial,sans-serif; } .sub { fill: #667085; font: 15px Inter,Arial,sans-serif; }
+    .label { fill: #586174; font: 700 12px Inter,Arial,sans-serif; letter-spacing: 1px; } .metric { fill: #172033; font: 700 27px Inter,Arial,sans-serif; }
+    .small { fill: #667085; font: 13px Inter,Arial,sans-serif; } .head { fill: #586174; font: 700 11px Inter,Arial,sans-serif; letter-spacing: .7px; }
+    .cell { fill: #172033; font: 13px Inter,Arial,sans-serif; } .muted { fill: #667085; font: 12px Inter,Arial,sans-serif; }
+    .bad { fill: #a21832; font: 12px Inter,Arial,sans-serif; } .green { fill: #17663b; font: 12px Inter,Arial,sans-serif; }
+  </style>
+  <rect class="bg" width="1280" height="760"/>
+  <g transform="translate(42 38)">
+    <text class="h1" x="0" y="0">Maintainer evidence dashboard</text>
+    <text class="sub" x="0" y="30">Local static view of untrusted, read-only GitHub JSON exports. No GitHub write occurred.</text>
+
+    <g transform="translate(0 68)">
+      <rect class="panel" width="214" height="116" rx="12"/><text class="label" x="18" y="28">EVIDENCE</text><text class="metric" x="18" y="66">4</text><text class="small" x="18" y="93">Imported read-only records</text>
+      <g transform="translate(232 0)"><rect class="panel" width="214" height="116" rx="12"/><text class="label" x="18" y="28">BLOCKERS</text><text class="metric" x="18" y="66">2</text><text class="small" x="18" y="93">Explicit export signals</text></g>
+      <g transform="translate(464 0)"><rect class="panel" width="214" height="116" rx="12"/><text class="label" x="18" y="28">WORKFLOW RUNS</text><text class="metric" x="18" y="66">0 / 1</text><text class="small" x="18" y="93">passed / failed</text></g>
+      <g transform="translate(696 0)"><rect class="panel" width="214" height="116" rx="12"/><text class="label" x="18" y="28">OPEN DECISIONS</text><text class="metric" x="18" y="66">1</text><text class="small" x="18" y="93">Fix or escalation decisions</text></g>
+      <g transform="translate(928 0)"><rect class="panel" width="214" height="116" rx="12"/><text class="label" x="18" y="28">REVIEW STATE</text><text class="metric" x="18" y="66">2</text><text class="small" x="18" y="93">Unreviewed evidence records</text></g>
+    </g>
+
+    <g transform="translate(0 208)">
+      <rect class="panel" width="1196" height="394" rx="12"/>
+      <rect fill="#f8fafc" x="1" y="1" width="1194" height="48" rx="12"/>
+      <text class="head" x="18" y="30">KIND</text><text class="head" x="150" y="30">SOURCE</text><text class="head" x="322" y="30">TITLE</text><text class="head" x="612" y="30">STATUS</text><text class="head" x="772" y="30">UPDATED</text><text class="head" x="946" y="30">DECISION</text>
+      <line x1="0" y1="49" x2="1196" y2="49" stroke="#e7ebf2"/>
+      <line x1="0" y1="125" x2="1196" y2="125" stroke="#e7ebf2"/>
+      <line x1="0" y1="201" x2="1196" y2="201" stroke="#e7ebf2"/>
+      <line x1="0" y1="277" x2="1196" y2="277" stroke="#e7ebf2"/>
+      <text class="cell" x="18" y="82">issue</text><text class="cell" x="150" y="82">issue:42</text><text class="cell" x="322" y="82">Document the release gate</text><text class="muted" x="612" y="82">open</text><text class="muted" x="772" y="82">2026-08-24</text><text class="cell" x="946" y="82">unreviewed</text><text class="muted" x="946" y="103">open</text>
+      <text class="cell" x="18" y="158">pull_request</text><text class="cell" x="150" y="158">pull_request:7</text><text class="cell" x="322" y="158">Harden release validation</text><text class="muted" x="612" y="158">open</text><text class="bad" x="612" y="180">blocked merge state</text><text class="muted" x="772" y="158">2026-08-24</text><text class="cell" x="946" y="158">escalate</text><text class="muted" x="946" y="180">open · release-manager</text>
+      <text class="cell" x="18" y="234">release</text><text class="cell" x="150" y="234">release:v2.1.2</text><text class="cell" x="322" y="234">2.1.2</text><text class="green" x="612" y="234">published</text><text class="muted" x="772" y="234">2026-08-24</text><text class="cell" x="946" y="234">unreviewed</text><text class="muted" x="946" y="255">open</text>
+      <text class="cell" x="18" y="310">workflow_run</text><text class="cell" x="150" y="310">workflow_run:99</text><text class="cell" x="322" y="310">CI</text><text class="bad" x="612" y="310">failure</text><text class="bad" x="612" y="332">workflow did not complete</text><text class="muted" x="772" y="310">2026-08-24</text><text class="cell" x="946" y="310">unreviewed</text><text class="muted" x="946" y="332">open</text>
+    </g>
+    <text class="small" x="0" y="636">Preview generated from the checked-in offline Demo fixture. It is a vector preview, not a browser screenshot or a live GitHub view.</text>
+  </g>
+</svg>

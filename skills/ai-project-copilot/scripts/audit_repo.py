@@ -123,10 +123,13 @@ def build_checks(root: Path) -> tuple[list[Check], list[str]]:
         for rel in rels
         for part in Path(rel).parts
     )
-    media_present = any(
-        rel.startswith(("docs/", "assets/")) and Path(rel).suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp4"}
+    media_assets = [
+        rel
         for rel in rels
-    )
+        if rel.startswith(("docs/", "assets/")) and Path(rel).suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp4"}
+    ]
+    media_present = bool(media_assets)
+    media_detail = f"visual media found: {', '.join(sorted(media_assets)[:3])}" if media_present else "no visual media detected"
     env_example = any(Path(rel).name in {".env.example", ".env.sample", ".env.template"} for rel in rels)
 
     checks = [
@@ -144,7 +147,7 @@ def build_checks(root: Path) -> tuple[list[Check], list[str]]:
         Check("security", "Security and data-boundary guidance exists", 6, any_name(files, {"SECURITY.md"}) or contains_any(readme, ("privacy", "security", "retention", "data boundary")), "security/privacy evidence found", "Document secrets, retention, permissions, and untrusted input."),
         Check("models", "Model/provider licensing boundary is stated", 5, contains_any(readme, ("model license", "model weights", "redistribute", "user-imported", "provider")), "model/provider boundary language found" if readme else "README unavailable", "State model source, version, license, and whether weights are bundled."),
         Check("examples", "Realistic examples or fixtures exist", 5, examples_present, "example/sample/fixture path found" if examples_present else "no example path detected", "Include a deterministic sample that reaches the core outcome."),
-        Check("visual", "Real visual/demo asset exists", 3, media_present, "visual media found under docs/assets" if media_present else "no visual media detected", "Add a real screenshot, short recording, or architecture graphic."),
+        Check("visual", "Real visual/demo asset exists", 3, media_present, media_detail, "Add a real screenshot, short recording, or architecture graphic."),
         Check("contributing", "Contribution guidance exists", 3, any_name(files, {"CONTRIBUTING.md"}), "CONTRIBUTING.md found", "Explain setup, tests, scope, and contribution expectations."),
         Check("configuration", "Configuration example exists", 3, env_example or contains_any(readme, ("environment variable", ".env.example", "configuration")), "configuration guidance found", "Add `.env.example` or explicit no-secret configuration instructions."),
         Check("secrets", "No obvious committed secrets", 8, not findings, "no high-confidence secret pattern detected" if not findings else "; ".join(findings), "Remove and rotate leaked credentials; keep only placeholders."),

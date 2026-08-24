@@ -14,11 +14,14 @@ from contextlib import contextmanager
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 import re
+import socket
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -32,6 +35,8 @@ DECISION_STATUSES = ("open", "resolved")
 TERMINAL_EVIDENCE_STATUSES = {"closed", "merged", "published", "success"}
 LOCK_TIMEOUT_SECONDS = 5.0
 LOCK_RETRY_SECONDS = 0.05
+MIN_STALE_LOCK_AGE_SECONDS = 300.0
+MAX_LOCK_METADATA_BYTES = 4 * 1024
 
 
 def _json_nesting_exceeds(text: str, maximum: int = MAX_JSON_NESTING) -> bool:
@@ -90,19 +95,184 @@ def _create_parent(root: Path, parent: Path) -> None:
             raise ValueError(f"ledger parent is not a directory: {current}")
 
 
+def _lock_path(root: Path, ledger_path: Path, *, create_parent: bool = False) -> Path:
+    root = root.expanduser().resolve()
+    target = _inside(root, ledger_path, "ledger path")
+    if create_parent:
+        _create_parent(root, target.parent)
+    return _inside(root, target.with_name(f".{target.name}.lock"), "ledger lock path")
+
+
+def _lock_metadata(lock_path: Path) -> tuple[dict[str, Any], str]:
+    if lock_path.is_symlink() or not lock_path.is_file():
+        raise ValueError(f"ledger lock must be a regular non-symlink file: {lock_path}")
+    raw = lock_path.read_bytes()
+    if len(raw) > MAX_LOCK_METADATA_BYTES:
+        raise ValueError(f"ledger lock metadata exceeds {MAX_LOCK_METADATA_BYTES} bytes")
+    try:
+        metadata = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"ledger lock metadata is invalid JSON: {exc}") from exc
+    if not isinstance(metadata, dict):
+        raise ValueError("ledger lock metadata must be an object")
+    return metadata, hashlib.sha256(raw).hexdigest()
+
+
+def _lock_timestamp(value: Any) -> dt.datetime:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise ValueError("ledger lock metadata has no UTC created_at timestamp")
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("ledger lock metadata has invalid created_at timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("ledger lock metadata created_at must include a timezone")
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def _lock_minimum_age(value: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ValueError("minimum stale lock age must be a finite non-negative number")
+    return float(value)
+
+
+def _pid_is_active(pid: int) -> bool | None:
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return None
+    return True
+
+
+def lock_status(
+    root: Path,
+    ledger: Path,
+    *,
+    minimum_stale_age_seconds: float = MIN_STALE_LOCK_AGE_SECONDS,
+) -> dict[str, Any]:
+    """Report whether one local ledger lock is safely recoverable without changing it."""
+    root = root.expanduser().resolve()
+    minimum_stale_age_seconds = _lock_minimum_age(minimum_stale_age_seconds)
+    target = _inside(root, ledger, "ledger path")
+    # Status is intentionally read-only: asking about a missing ledger must
+    # not create its parent directory or any lock-related state.
+    lock_path = _lock_path(root, target)
+    report: dict[str, Any] = {
+        "ledger": target.relative_to(root).as_posix(),
+        "lock": lock_path.relative_to(root).as_posix(),
+        "locked": False,
+        "minimum_stale_age_seconds": minimum_stale_age_seconds,
+        "recoverable": False,
+    }
+    if lock_path.is_symlink():
+        raise ValueError(f"refusing symlinked ledger lock: {lock_path}")
+    if not lock_path.exists():
+        return report
+    if not lock_path.is_file():
+        raise ValueError(f"ledger lock path must be a regular file: {lock_path}")
+    report["locked"] = True
+    try:
+        metadata, fingerprint = _lock_metadata(lock_path)
+        pid = metadata.get("pid")
+        created_at = _lock_timestamp(metadata.get("created_at"))
+        hostname = metadata.get("hostname")
+        if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+            raise ValueError("ledger lock metadata has invalid pid")
+        if not isinstance(hostname, str) or not hostname:
+            raise ValueError("ledger lock metadata has no hostname")
+    except ValueError as exc:
+        report.update({"metadata_valid": False, "recovery_reason": str(exc)})
+        return report
+    local_host = hostname == socket.gethostname()
+    age_seconds = max(0.0, (dt.datetime.now(dt.timezone.utc) - created_at).total_seconds())
+    pid_active = _pid_is_active(pid) if local_host else None
+    report.update(
+        {
+            "metadata_valid": True,
+            "fingerprint": fingerprint,
+            "pid": pid,
+            "hostname": hostname,
+            "created_at": created_at.isoformat().replace("+00:00", "Z"),
+            "age_seconds": round(age_seconds, 3),
+            "local_host": local_host,
+            "pid_active": pid_active,
+        }
+    )
+    if not local_host:
+        report["recovery_reason"] = "lock belongs to a different host"
+    elif pid_active is not False:
+        report["recovery_reason"] = "lock owner process is active or cannot be proven inactive"
+    elif age_seconds < minimum_stale_age_seconds:
+        report["recovery_reason"] = "lock has not reached the configured minimum stale age"
+    else:
+        report["recoverable"] = True
+        report["recovery_reason"] = "local owner process is inactive and lock age exceeds the configured minimum"
+    return report
+
+
+def recover_stale_lock(
+    root: Path,
+    ledger: Path,
+    *,
+    minimum_stale_age_seconds: float = MIN_STALE_LOCK_AGE_SECONDS,
+    force_stale_lock: bool = False,
+) -> dict[str, Any]:
+    """Atomically retire a proven stale lock after an explicit human opt-in.
+
+    Recovery never deletes the lock. It moves the exact, checked stale lock
+    into a private sibling recovery directory, preserving the evidence while
+    freeing the canonical lock path for a new writer.
+    """
+    if not force_stale_lock:
+        raise ValueError("stale lock recovery requires explicit --force-stale-lock")
+    root = root.expanduser().resolve()
+    report = lock_status(root, ledger, minimum_stale_age_seconds=minimum_stale_age_seconds)
+    if not report["locked"]:
+        raise ValueError("ledger is not locked")
+    if not report["recoverable"]:
+        raise ValueError(f"refusing stale lock recovery: {report.get('recovery_reason', 'lock cannot be proven stale')}")
+    fingerprint = report.get("fingerprint")
+    if not isinstance(fingerprint, str):
+        raise ValueError("lock recovery requires valid lock metadata fingerprint")
+    lock_path = _lock_path(root, ledger)
+    _, current_fingerprint = _lock_metadata(lock_path)
+    if current_fingerprint != fingerprint:
+        raise ValueError("ledger lock changed during recovery; retry lock-status")
+    recovery_dir = _inside(root, lock_path.parent / f".ledger-lock-recovery-{uuid.uuid4().hex}", "ledger recovery directory")
+    recovery_dir.mkdir(mode=0o700)
+    if recovery_dir.is_symlink() or not recovery_dir.is_dir():
+        raise ValueError(f"ledger recovery directory is unsafe: {recovery_dir}")
+    archived = recovery_dir / "lock.json"
+    try:
+        os.rename(lock_path, archived)
+    except OSError as exc:
+        raise ValueError(f"could not retire stale ledger lock: {exc}") from exc
+    return {
+        "ledger": _inside(root, ledger, "ledger path").relative_to(root).as_posix(),
+        "recovered_at": _utc_timestamp(),
+        "archived_lock": archived.relative_to(root).as_posix(),
+        "prior_lock": report,
+    }
+
+
 @contextmanager
 def _ledger_lock(root: Path, ledger_path: Path) -> Iterator[Path]:
     """Take a repository-confined cross-process lock for one ledger mutation.
 
     Atomic replacement protects an individual write, but it cannot prevent two
     agents from independently reading the same revision and overwriting each
-    other's decisions.  An exclusive sibling lock serializes the full
+    other's decisions. An exclusive sibling lock serializes the full
     read-modify-write transaction on Windows, macOS, and Linux.
     """
     root = root.expanduser().resolve()
     target = _inside(root, ledger_path, "ledger path")
-    _create_parent(root, target.parent)
-    lock_path = _inside(root, target.with_name(f".{target.name}.lock"), "ledger lock path")
+    lock_path = _lock_path(root, target, create_parent=True)
     deadline = time.monotonic() + LOCK_TIMEOUT_SECONDS
     fd: int | None = None
     while fd is None:
@@ -118,7 +288,10 @@ def _ledger_lock(root: Path, ledger_path: Path) -> Iterator[Path]:
             time.sleep(LOCK_RETRY_SECONDS)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps({"pid": os.getpid(), "created_at": _utc_timestamp()}) + "\n")
+            handle.write(
+                json.dumps({"pid": os.getpid(), "hostname": socket.gethostname(), "created_at": _utc_timestamp()})
+                + "\n"
+            )
             handle.flush()
             os.fsync(handle.fileno())
         yield target
@@ -482,7 +655,7 @@ def _markdown(report: dict[str, Any]) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    for name in ("init", "sync", "decide", "status"):
+    for name in ("init", "sync", "decide", "status", "lock-status", "recover-stale-lock"):
         item = sub.add_parser(name)
         item.add_argument("--repo", type=Path, required=True)
         item.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
@@ -500,6 +673,10 @@ def build_parser() -> argparse.ArgumentParser:
             item.add_argument("--expected-revision", type=int)
         if name == "status":
             item.add_argument("--format", choices=("json", "markdown"), default="markdown")
+        if name in {"lock-status", "recover-stale-lock"}:
+            item.add_argument("--min-stale-age-seconds", type=float, default=MIN_STALE_LOCK_AGE_SECONDS)
+        if name == "recover-stale-lock":
+            item.add_argument("--force-stale-lock", action="store_true")
     return parser
 
 
@@ -522,6 +699,15 @@ def main(argv: list[str] | None = None) -> int:
                 actor=args.actor,
                 source_commit=args.source_commit,
                 expected_revision=args.expected_revision,
+            )
+        elif args.action == "lock-status":
+            result = lock_status(args.repo, args.ledger, minimum_stale_age_seconds=args.min_stale_age_seconds)
+        elif args.action == "recover-stale-lock":
+            result = recover_stale_lock(
+                args.repo,
+                args.ledger,
+                minimum_stale_age_seconds=args.min_stale_age_seconds,
+                force_stale_lock=args.force_stale_lock,
             )
         else:
             result = status(args.repo, args.ledger)

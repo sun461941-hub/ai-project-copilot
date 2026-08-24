@@ -37,6 +37,8 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python - "$RELEASE_TAG" <<'PY'
           import re
@@ -47,6 +49,12 @@ jobs:
           PY
           git show-ref --verify --quiet "refs/tags/${RELEASE_TAG}"
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "${RELEASE_TAG}")"
+          git fetch --no-tags origin "${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          git merge-base --is-ancestor HEAD "refs/remotes/origin/${DEFAULT_BRANCH}"
+          tag_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.type')"
+          test "$tag_type" = "tag"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" --jq '.verification.verified')" = "true"
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -62,9 +70,14 @@ jobs:
           python tools/validate_skill.py skills/ai-project-copilot
           python skills/ai-project-copilot/scripts/run_skill_evals.py --format json
           python -m unittest discover -s tests -v
+          (cd ai-project-copilot-multi-interface-upgrade && python -m unittest discover -s package_tests -v)
+          (cd ai-project-copilot-multi-interface-upgrade/payload && python -m unittest discover -s tests -v)
           python -m compileall -q tools tests skills/ai-project-copilot/scripts
+          python -m compileall -q ai-project-copilot-multi-interface-upgrade/package_tests ai-project-copilot-multi-interface-upgrade/payload
           sha256sum -c SHA256SUMS.txt
           (cd ai-project-copilot-multi-interface-upgrade && sha256sum -c SHA256SUMS.txt)
+          git apply --check --whitespace=error ai-project-copilot-multi-interface-upgrade/ai-project-copilot-multi-interface.patch
+          git diff --check
 
       - name: Build release archive
         run: >-
@@ -77,6 +90,13 @@ jobs:
           python tools/package_skill.py skills/ai-project-copilot \
             --output dist/second.skill.zip
           cmp dist/first.skill.zip dist/second.skill.zip
+      - name: Smoke-test release archive
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          unzip -q dist/ai-project-copilot.skill.zip -d "$smoke_dir"
+          python tools/validate_skill.py "$smoke_dir/ai-project-copilot"
+          python "$smoke_dir/ai-project-copilot/scripts/run_skill_evals.py" --format json
   publish:
     name: Publish approved release
     needs: validate
@@ -86,6 +106,8 @@ jobs:
       name: release
     permissions:
       contents: write
+      attestations: write
+      id-token: write
 
     steps:
       - name: Check out approved tag
@@ -98,9 +120,17 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           git show-ref --verify --quiet "refs/tags/${RELEASE_TAG}"
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "${RELEASE_TAG}")"
+          git fetch --no-tags origin "${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          git merge-base --is-ancestor HEAD "refs/remotes/origin/${DEFAULT_BRANCH}"
+          tag_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.type')"
+          test "$tag_type" = "tag"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" --jq '.verification.verified')" = "true"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -112,10 +142,33 @@ jobs:
           --output dist/ai-project-copilot.skill.zip
 
       - name: Write checksum
-        run: >-
-          python -c "from pathlib import Path; import hashlib;
-          p=Path('dist/ai-project-copilot.skill.zip');
-          Path('dist/SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n', encoding='utf-8')"
+        run: |
+          python tools/generate_release_sbom.py \
+            --artifact dist/ai-project-copilot.skill.zip \
+            --output dist/ai-project-copilot.sbom.cdx.json \
+            --version "${{ inputs.tag }}" \
+            --source-commit "$(git rev-parse HEAD)" \
+            --repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          python - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+
+          paths = [
+              Path("dist/ai-project-copilot.skill.zip"),
+              Path("dist/ai-project-copilot.sbom.cdx.json"),
+          ]
+          Path("dist/SHA256SUMS.txt").write_text(
+              "".join(f"{sha256(path.read_bytes()).hexdigest()}  {path.name}\\n" for path in paths),
+              encoding="utf-8",
+          )
+          PY
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            dist/ai-project-copilot.skill.zip
+            dist/ai-project-copilot.sbom.cdx.json
+            dist/SHA256SUMS.txt
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,6 +176,7 @@ jobs:
         run: >-
           gh release create "${RELEASE_TAG}"
           dist/ai-project-copilot.skill.zip
+          dist/ai-project-copilot.sbom.cdx.json
           dist/SHA256SUMS.txt
           --verify-tag
           --generate-notes

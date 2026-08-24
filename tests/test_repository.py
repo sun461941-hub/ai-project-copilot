@@ -10,6 +10,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills" / "ai-project-copilot"
@@ -231,6 +232,11 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(100, data["percentage"])
         self.assertEqual("showcase-ready", data["grade"])
         self.assertEqual([], data["secret_findings"])
+        visual = next(check for check in data["checks"] if check["id"] == "visual")
+        self.assertIn("docs/assets/demo-dashboard-preview.svg", visual["evidence"])
+        preview = ROOT / "docs" / "assets" / "demo-dashboard-preview.svg"
+        ElementTree.parse(preview)
+        self.assertIn("not a browser screenshot", preview.read_text(encoding="utf-8"))
 
     def test_trigger_eval_dataset_is_balanced(self) -> None:
         bundled = SKILL / "evals" / "trigger-prompts.csv"
